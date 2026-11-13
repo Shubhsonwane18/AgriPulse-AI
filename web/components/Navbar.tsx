@@ -57,11 +57,10 @@ export function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`font-semibold transition-colors pb-1 relative ${
-                      isActive
+                    className={`font-semibold transition-colors pb-1 relative ${isActive
                         ? 'text-[#165b33] font-bold border-b-2 border-[#165b33]'
                         : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     {link.name}
                   </Link>
@@ -107,11 +106,10 @@ export function Navbar() {
                         setLocale(lang.code as Locale);
                         setLangDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2 text-xs flex items-center justify-between transition-colors ${
-                        locale === lang.code
+                      className={`w-full text-left px-4 py-2 text-xs flex items-center justify-between transition-colors ${locale === lang.code
                           ? 'bg-emerald-50 text-[#165b33] font-bold'
                           : 'text-gray-700 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <span className="text-sm">{lang.name}</span>
                       <span className="text-[11px] text-gray-400">{lang.nativeName}</span>
@@ -191,11 +189,10 @@ export function Navbar() {
                     setLocale(lang.code as Locale);
                     setMobileMenuOpen(false);
                   }}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
-                    locale === lang.code
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border ${locale === lang.code
                       ? 'bg-[#165b33] text-white border-[#165b33]'
                       : 'bg-gray-50 text-gray-700 border-gray-200'
-                  }`}
+                    }`}
                 >
                   {lang.name}
                 </button>
@@ -209,11 +206,10 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`py-2 px-3 rounded-lg text-sm font-semibold ${
-                  pathname === link.href
+                className={`py-2 px-3 rounded-lg text-sm font-semibold ${pathname === link.href
                     ? 'bg-emerald-50 text-[#165b33]'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {link.name}
               </Link>
