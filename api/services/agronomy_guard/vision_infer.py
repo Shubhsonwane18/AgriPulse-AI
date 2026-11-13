@@ -3,7 +3,6 @@ Computer Vision Pathology Pipeline & Weather Lockout Coupling (AGENTS.md Section
 Extracts disease classification and binds it with 48-hour Open-Meteo atmospheric windows.
 """
 from typing import Dict, Any, Optional
-from .weather_client import evaluate_spraying_window
 from .advisory_rules import get_cibrc_recommendation
 
 async def diagnose_crop_pathology(
@@ -20,6 +19,8 @@ async def diagnose_crop_pathology(
     4. Apply lockout rules (rain wash-off, wind drift, heat scorch).
     5. Issue comprehensive agronomy verdict.
     """
+    from .weather_client import evaluate_spraying_window
+
     text_clean = (crop_name + " " + symptom_or_image_hint).lower()
     
     # Classify pathology
@@ -52,7 +53,7 @@ async def diagnose_crop_pathology(
     treatment = get_cibrc_recommendation(disease_key)
 
     # 2. Query 48-hour hourly weather window
-    weather_eval = await evaluate_spraying_window(lat, lon)
+    weather_eval = evaluate_spraying_window(lat, lon)
 
     # 3. Formulate unified decision
     can_spray = weather_eval["safe_to_spray_now"]
@@ -86,4 +87,3 @@ async def diagnose_crop_pathology(
             "final_advisory": weather_eval["action_advisory"]
         }
     }
-

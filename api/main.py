@@ -630,20 +630,36 @@ def post_market_arbitrage_v1(payload: ArbitrageRequest):
     )
 
 @app.get("/api/v1/agronomy/spray-window")
-async def get_agronomy_spray_window_v1(
+def get_agronomy_spray_window_v1(
     lat: float = Query(20.1472, description="Farmer latitude"),
     lon: float = Query(74.2255, description="Farmer longitude")
 ):
     """
-    Hyperlocal Open-Meteo 48h Weather Spraying Window Lockout Analyzer.
+    Hyperlocal Open-Meteo 48h Weather Spraying Window Lockout Analyzer with MOS Downscaling.
     Applies rain (>40% / 0.5mm), wind drift (>18km/h), and high heat (>35°C) lockouts.
     """
-    evaluation = await evaluate_spraying_window(lat, lon)
+    evaluation = evaluate_spraying_window(lat, lon)
     return {
         "status": "success",
         "lat": lat,
         "lon": lon,
         "evaluation": evaluation
+    }
+
+@app.get("/api/v1/agronomy/weather-forecast")
+def get_agronomy_weather_forecast_v1(
+    lat: float = Query(20.1472, description="Farmer latitude"),
+    lon: float = Query(74.2255, description="Farmer longitude")
+):
+    """
+    Returns full 24h hourly and 7-day agronomic forecast enhanced by the MOS Downscaling Engine.
+    """
+    report = evaluate_spraying_window(lat, lon)
+    return {
+        "status": "success",
+        "lat": lat,
+        "lon": lon,
+        "weather": report
     }
 
 @app.post("/api/v1/agronomy/diagnose")
