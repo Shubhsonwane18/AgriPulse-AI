@@ -302,6 +302,40 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* HYPERLOCAL WEATHER & SPRAYING GUARD WIDGET */}
+        <div className="bg-gradient-to-r from-emerald-900 to-[#165b33] rounded-3xl p-4 sm:p-5 text-white shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 border border-emerald-700/40">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center text-amber-300 text-2xl shrink-0 border border-white/10">
+              ☀️
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
+                  {locale === 'mr' ? 'हवामान व फवारणी रक्षक' : locale === 'hi' ? 'मौसम एवं छिड़काव विंडो' : 'Hyperlocal Weather & Spraying Guard'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-400/25 text-emerald-100 border border-emerald-300/30">
+                  ✓ {locale === 'mr' ? 'आत्ता फवारणी सुरक्षित' : locale === 'hi' ? 'अभी छिड़काव सुरक्षित' : 'Safe to Spray Now'}
+                </span>
+              </div>
+              <div className="text-xs sm:text-sm font-semibold text-emerald-100 flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className="text-white font-bold">📍 {location.village}, {location.district}</span>
+                <span className="text-emerald-400/60 hidden sm:inline">|</span>
+                <span>28°C · {locale === 'mr' ? 'वारा' : 'Wind'}: 11 km/h</span>
+                <span className="text-emerald-400/60 hidden sm:inline">|</span>
+                <span>{locale === 'mr' ? 'पाऊस' : 'Rain'}: &lt;10%</span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/weather"
+            className="self-start md:self-auto px-4 py-2 rounded-xl bg-white text-[#165b33] hover:bg-emerald-50 text-xs font-extrabold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <span>{locale === 'mr' ? '७ दिवसांचा हवामान अंदाज पहा' : locale === 'hi' ? '7 दिवसीय मौसम देखें' : 'View 7-Day Forecast & Spray Times'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
         {/* City & Taluka Search Bar with Live Suggestions & Strict Background Scroll Isolation */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-900/10 shadow-xs space-y-3 relative z-30">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

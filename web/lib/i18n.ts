@@ -54,6 +54,7 @@ export interface Translations {
     dashboard: string;
     prices: string;
     forecast: string;
+    weather: string;
     markets: string;
     profit: string;
     soil: string;
@@ -141,6 +142,7 @@ const enTranslations: Translations = {
     dashboard: 'Dashboard',
     prices: 'Prices',
     forecast: 'Forecast',
+    weather: 'Weather',
     markets: 'Markets',
     profit: 'Profit & MSP',
     soil: 'Soil',
@@ -277,6 +279,7 @@ const hiTranslations: Translations = {
     dashboard: 'डैशबोर्ड',
     prices: 'मंडी भाव',
     forecast: 'पूर्वानुमान',
+    weather: 'मौसम व छिड़काव',
     markets: 'मंडी तुलना',
     profit: 'मुनाफा व MSP',
     soil: 'मिट्टी व फसल',
@@ -413,6 +416,7 @@ const mrTranslations: Translations = {
     dashboard: 'डॅशबोर्ड',
     prices: 'बाजारभाव',
     forecast: 'भाव अंदाज',
+    weather: 'हवामान व फवारणी',
     markets: 'विक्री की साठवणूक',
     profit: 'नफा व MSP',
     soil: 'माती व पीक',
@@ -549,6 +553,7 @@ const guTranslations: Translations = {
     dashboard: 'ડેશબોર્ડ',
     prices: 'બજાર ભાવ',
     forecast: 'ભાવ અનુમાન',
+    weather: 'હવામાન',
     markets: 'બજાર સરખામણી',
     profit: 'નફો અને MSP',
     soil: 'જમીન અને પાક',
@@ -679,6 +684,7 @@ const taTranslations: Translations = {
     dashboard: 'முகப்பு',
     prices: 'சந்தை விலைகள்',
     forecast: 'விலை கணிப்பு',
+    weather: 'வானிலை',
     markets: 'சந்தை ஒப்பீடு',
     profit: 'லாபம் & MSP',
     soil: 'மண் & பயிர்',
@@ -809,6 +815,7 @@ const teTranslations: Translations = {
     dashboard: 'డాష్‌బోర్డ్',
     prices: 'మార్కెట్ ధరలు',
     forecast: 'ధర అంచనా',
+    weather: 'వాతావరణం',
     markets: 'మార్కెట్ పోలిక',
     profit: 'లాభం & MSP',
     soil: 'నేల & పంటలు',
@@ -939,6 +946,7 @@ const knTranslations: Translations = {
     dashboard: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
     prices: 'ಮಾರುಕಟ್ಟೆ ದರಗಳು',
     forecast: 'ದರ ಮುನ್ಸೂಚನೆ',
+    weather: 'ಹವಾಮಾನ',
     markets: 'ಮಾರುಕಟ್ಟೆ ಹೋಲಿಕೆ',
     profit: 'ಲಾಭ & MSP',
     soil: 'ಮಣ್ಣು & ಬೆಳೆಗಳು',
@@ -1069,6 +1077,7 @@ const bnTranslations: Translations = {
     dashboard: 'ড্যাশবোর্ড',
     prices: 'বাজার দর',
     forecast: 'দর পূর্বাভাস',
+    weather: 'আবহাওয়া',
     markets: 'মাণ্ডি তুলনা',
     profit: 'লাভ ও MSP',
     soil: 'মাটি ও ফসল',
@@ -1199,6 +1208,7 @@ const paTranslations: Translations = {
     dashboard: 'ਡੈਸ਼ਬੋਰਡ',
     prices: 'ਮੰਡੀ ਭਾਅ',
     forecast: 'ਭਾਅ ਅਨੁਮਾਨ',
+    weather: 'ਮੌਸਮ',
     markets: 'ਮੰਡੀ ਤੁਲਨਾ',
     profit: 'ਮੁਨਾਫ਼ਾ ਤੇ MSP',
     soil: 'ਮਿੱਟੀ ਤੇ ਫ਼ਸਲ',

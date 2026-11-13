@@ -23,6 +23,8 @@ export function Footer() {
             <span className="text-gray-300">•</span>
             <Link href="/forecast" className="text-gray-600 hover:text-gray-900">{t.nav.forecast}</Link>
             <span className="text-gray-300">•</span>
+            <Link href="/weather" className="text-gray-600 hover:text-gray-900">{t.nav.weather}</Link>
+            <span className="text-gray-300">•</span>
             <Link href="/markets" className="text-gray-600 hover:text-gray-900">{t.nav.markets}</Link>
             <span className="text-gray-300">•</span>
             <Link href="/soil" className="text-gray-600 hover:text-gray-900">{t.nav.soil}</Link>

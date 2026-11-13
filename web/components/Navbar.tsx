@@ -23,6 +23,7 @@ export function Navbar() {
     { name: t.nav.dashboard, href: '/' },
     { name: t.nav.prices, href: '/prices' },
     { name: t.nav.forecast, href: '/forecast' },
+    { name: t.nav.weather, href: '/weather' },
     { name: t.nav.markets, href: '/markets' },
     { name: t.nav.profit, href: '/profit' },
     { name: t.nav.soil, href: '/soil' },
