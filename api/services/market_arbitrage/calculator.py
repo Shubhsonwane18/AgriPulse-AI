@@ -2,6 +2,7 @@
 Net Mandi Arbitrage Calculation Engine (AGENTS.md Section 4.1 & 5.1)
 Calculates mathematically true in-hand profits factoring round-trip fuel,
 vehicle mileage, loading/unloading fees, toll charges, and APMC commission cesses.
+Generates compact WhatsApp/Telegram rich comparison cards.
 """
 from typing import List, Dict, Any, Union
 from .models import MandiCandidate, MandiEvaluation
@@ -87,3 +88,66 @@ def rank_mandis_by_net_profit(
 
     return evaluations
 
+def format_mandi_arbitrage_card(
+    evaluations: List[Dict[str, Any]],
+    commodity_name: str = "Soybean",
+    weight_quintals: float = 10.0,
+    language: str = "mr"
+) -> str:
+    """
+    Renders a compact WhatsApp / Telegram comparison card with formatting.
+    """
+    lang = language.lower()[:2]
+    if not evaluations:
+        return "कोणतीही जवळची बाजार समिती उपलब्ध नाही." if lang == "mr" else "No nearby mandis found."
+
+    best = evaluations[0]
+    
+    if lang == "mr":
+        lines = [
+            f"📊 *बाजारभाव व निव्वळ नफा तुलना ({weight_quintals} क्विंटल {commodity_name})*",
+            "━━━━━━━━━━━━━━━━━━━━━━"
+        ]
+        for item in evaluations[:3]:
+            r_icon = "🥇" if item["rank"] == 1 else "🥈" if item["rank"] == 2 else "🥉"
+            lines.append(
+                f"{r_icon} *{item['mandi_name']}* ({item['distance_km']} किमी)\n"
+                f"   • जाहीर भाव: ₹{int(item['quoted_gross_rate'])}/क्विं\n"
+                f"   • एकूण वाहतूक खर्च: ₹{int(item['total_logistics_overhead'])}\n"
+                f"   👉 *हातात मिळणारा नफा: ₹{int(item['net_earnings']):,}* (दर: ₹{int(item['effective_net_rate'])}/क्विं)"
+            )
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"💡 *सल्ला:* {best['mandi_name']} मध्ये विक्री केल्यास वाहतूक खर्च वजा जाता सर्वाधिक नफा मिळेल!")
+        return "\n".join(lines)
+    elif lang == "hi":
+        lines = [
+            f"📊 *मंडी भाव एवं शुद्ध मुनाफा तुलना ({weight_quintals} क्विंटल {commodity_name})*",
+            "━━━━━━━━━━━━━━━━━━━━━━"
+        ]
+        for item in evaluations[:3]:
+            r_icon = "🥇" if item["rank"] == 1 else "🥈" if item["rank"] == 2 else "🥉"
+            lines.append(
+                f"{r_icon} *{item['mandi_name']}* ({item['distance_km']} किमी)\n"
+                f"   • मॉडल भाव: ₹{int(item['quoted_gross_rate'])}/क्विं\n"
+                f"   • परिवहन खर्च: ₹{int(item['total_logistics_overhead'])}\n"
+                f"   👉 *हाथ में आने वाला मुनाफा: ₹{int(item['net_earnings']):,}* (दर: ₹{int(item['effective_net_rate'])}/क्विं)"
+            )
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"💡 *सलाह:* {best['mandi_name']} में उपज बेचने पर सबसे अधिक शुद्ध बचत होगी!")
+        return "\n".join(lines)
+    else:
+        lines = [
+            f"📊 *Mandi Net Realization Comparison ({weight_quintals} Qtl {commodity_name})*",
+            "━━━━━━━━━━━━━━━━━━━━━━"
+        ]
+        for item in evaluations[:3]:
+            r_icon = "🥇" if item["rank"] == 1 else "🥈" if item["rank"] == 2 else "🥉"
+            lines.append(
+                f"{r_icon} *{item['mandi_name']}* ({item['distance_km']} km)\n"
+                f"   • Quoted Rate: ₹{int(item['quoted_gross_rate'])}/Qtl\n"
+                f"   • Transport & Fees: ₹{int(item['total_logistics_overhead'])}\n"
+                f"   👉 *Net In-Hand: ₹{int(item['net_earnings']):,}* (Effective: ₹{int(item['effective_net_rate'])}/Qtl)"
+            )
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"💡 *Recommendation:* Sell at {best['mandi_name']} for highest true in-hand return.")
+        return "\n".join(lines)

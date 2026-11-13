@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageContext';
+import { useLocation } from '@/components/LocationContext';
 import {
   UploadCloud,
   Camera,
@@ -145,6 +146,7 @@ const SAMPLE_DISEASES: Record<string, DiseaseDiagnosis> = {
 
 export default function DiseasePage() {
   const { t, locale } = useLanguage();
+  const { location } = useLocation();
   const isEn = locale === 'en';
   const isMr = locale === 'mr';
 
@@ -210,13 +212,16 @@ export default function DiseasePage() {
     setDiagnosis(null);
     setSprayWindow(null);
 
+    const farmLat = location?.latitude || 20.1472;
+    const farmLon = location?.longitude || 74.2255;
+
     const [diagResult, windowResult] = await Promise.all([
       new Promise<DiseaseDiagnosis>((resolve) => {
         setTimeout(() => {
           resolve(SAMPLE_DISEASES[key] || SAMPLE_DISEASES['tomato-blight']);
         }, 1200);
       }),
-      fetchSprayWindow(20.1472, 74.2255)
+      fetchSprayWindow(farmLat, farmLon)
     ]);
 
     setDiagnosis(diagResult);
@@ -333,13 +338,18 @@ export default function DiseasePage() {
                   : 'bg-rose-50/70 border-rose-300'
               }`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200/60">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full animate-pulse ${
-                      sprayWindow.safe_to_spray_now ? 'bg-emerald-600' : 'bg-rose-600'
-                    }`} />
-                    <span className="text-xs font-black uppercase tracking-wider text-gray-800">
-                      {strings.sprayGuardTitle}
-                    </span>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full animate-pulse ${
+                        sprayWindow.safe_to_spray_now ? 'bg-emerald-600' : 'bg-rose-600'
+                      }`} />
+                      <span className="text-xs font-black uppercase tracking-wider text-gray-800">
+                        {strings.sprayGuardTitle}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-semibold text-gray-600">
+                      📍 {location.village ? `${location.village}, ${location.district}` : 'Hyperlocal Farm Coordinates'} ({location.latitude?.toFixed(2)}°N, {location.longitude?.toFixed(2)}°E)
+                    </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${
                     sprayWindow.safe_to_spray_now
@@ -392,6 +402,22 @@ export default function DiseasePage() {
                     </span>
                   </div>
                 </div>
+
+                {sprayWindow.safe_window_hours && sprayWindow.safe_window_hours.length > 0 && (
+                  <div className="pt-2 pb-1 border-t border-gray-200/50">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                      ⏱ {isEn ? 'Recommended 48-Hour Spraying Slots:' : isMr ? 'शिफारस केलेले सुरक्षित तास (४८ तास):' : 'अनुशंसित सुरक्षित समय (४८ घंटे):'}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sprayWindow.safe_window_hours.map((slot, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          {slot}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <p className="text-xs text-gray-700 font-medium pt-1">
                   <strong>{isEn ? 'Spraying Advisory:' : 'फवारणी सल्ला:'}</strong> {sprayWindow.action_advisory}

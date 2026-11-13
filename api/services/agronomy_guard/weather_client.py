@@ -22,7 +22,8 @@ async def evaluate_spraying_window(lat: float, lon: float) -> Dict[str, Any]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        timeout_config = httpx.Timeout(2.5, connect=1.5)
+        async with httpx.AsyncClient(timeout=timeout_config) as client:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             payload = resp.json()["hourly"]
