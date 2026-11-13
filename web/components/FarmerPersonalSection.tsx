@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/LanguageContext';
 import { useAuth } from '@/components/AuthContext';
+import { useLocation } from '@/components/LocationContext';
 import {
   MapPin,
   Compass,
@@ -62,15 +63,15 @@ export function FarmerPersonalSection({
   const isEn = locale === 'en';
   const isMr = locale === 'mr';
 
-  // 1. Farmer Land & Location State (synced with parent or local)
-  const [internalLocation, setInternalLocation] = useState<UserLocationDetails>(DEFAULT_FARMER_LOCATION);
-  const location = propLocation || internalLocation;
+  // 1. Farmer Land & Location State (synced with global LocationContext)
+  const globalLocationContext = useLocation();
+  const location = propLocation || globalLocationContext.location;
   const setLocation = (loc: UserLocationDetails) => {
-    setInternalLocation(loc);
+    globalLocationContext.setLocation(loc);
     onLocationChange?.(loc);
   };
+  const { isLocating, detectGPS, setLocationModalOpen } = globalLocationContext;
 
-  const [isLocating, setIsLocating] = useState<boolean>(false);
   const [landAcres, setLandAcres] = useState<number>(profile?.land_size_acres || 2.5);
   const [priceUnit, setPriceUnit] = useState<'kg' | 'quintal'>('kg');
 
@@ -103,9 +104,6 @@ export function FarmerPersonalSection({
         source: 'gps',
       };
       setLocation(loc);
-    } else if (!propLocation) {
-      const saved = getSavedFarmerLocation();
-      setInternalLocation(saved);
     }
   }, [profile]);
 
@@ -139,15 +137,9 @@ export function FarmerPersonalSection({
     setSelectedRecommendedCrop(recs[0] || null);
   }, [location, currentCrop, soilProfile, landAcres]);
 
-  // Handle GPS detection via browser & Nominatim API
+  // Handle GPS detection via browser & LGD API
   const handleDetectGPS = async () => {
-    setIsLocating(true);
-    try {
-      const detected = await detectRealUserLocation();
-      setLocation(detected);
-    } finally {
-      setIsLocating(false);
-    }
+    await detectGPS();
   };
 
   // Farmer's yield calculation (quintals) dynamically resolved from master agricultural catalog
@@ -216,18 +208,33 @@ export function FarmerPersonalSection({
         </div>
 
         {/* GPS Location & Live Detect Button */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 self-start md:self-auto">
-          <div className="flex items-center gap-2 bg-[#f4f6f4] px-3.5 py-2 rounded-2xl border border-gray-200 text-xs text-gray-800 font-semibold">
-            <MapPin className="w-4 h-4 text-[#165b33] shrink-0" />
-            <span>{location.displayName}</span>
-            <span className="text-[10px] text-gray-500 font-mono">({location.latitude.toFixed(2)}, {location.longitude.toFixed(2)})</span>
-          </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setLocationModalOpen(true)}
+            className="flex items-center gap-2 bg-[#f4f6f4] hover:bg-emerald-50 hover:border-emerald-300 px-3.5 py-2 rounded-2xl border border-gray-300 text-xs text-gray-800 font-semibold transition-all cursor-pointer group shadow-2xs"
+            title="Click to choose your village or taluka"
+          >
+            <MapPin className="w-4 h-4 text-[#165b33] shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="font-bold text-gray-900 group-hover:text-[#165b33]">
+              {location.village ? `${location.village}, ${location.district}` : location.displayName}
+            </span>
+            <span className="text-[10px] text-gray-500 font-mono">
+              ({location.latitude.toFixed(2)}, {location.longitude.toFixed(2)})
+            </span>
+            <span className="text-[10px] font-bold text-[#165b33] bg-emerald-100/80 px-2 py-0.5 rounded-md ml-0.5 border border-emerald-200">
+              {isMr ? 'गाव बदला ➔' : 'Change Village ➔'}
+            </span>
+          </button>
 
           <button
-            onClick={handleDetectGPS}
+            type="button"
+            onClick={async () => {
+              await detectGPS();
+            }}
             disabled={isLocating}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#165b33] hover:bg-[#124828] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60"
-            title="Update Live GPS Location via Browser & Nominatim"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#165b33] hover:bg-[#124828] text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
+            title="Update Live GPS Location via Browser & Snap to LGD Village"
           >
             <Compass className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
             <span>{isLocating ? strings.locating : strings.gpsBtn}</span>

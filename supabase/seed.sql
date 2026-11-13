@@ -103,3 +103,4 @@ INSERT INTO public.price_forecasts (commodity, market, p10, p50, p90, horizon_da
  '["International edible oil tariff increase (+₹95)", "High moisture in fresh arrivals (-₹40)", "Crushers active with steady spot margins (+₹35)"]'::jsonb,
  'Watch moisture levels; dry stock commands ₹120/q premium.',
  'Forecast is decision support, not a guarantee.');
+``

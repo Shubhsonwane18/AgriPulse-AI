@@ -41,6 +41,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
+*.db-wal
+*.db-shm
 
 # OS & Editor
 .DS_Store

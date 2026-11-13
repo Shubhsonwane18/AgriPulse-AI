@@ -73,6 +73,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [isRateLimitError, setIsRateLimitError] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // If already logged in, redirect
@@ -87,21 +88,70 @@ export default function LoginPage() {
   }, [user, profile, router]);
 
   const handleDemoLogin = () => {
-    loginAsDemo();
+    const hasCustomName = fullName.trim().length > 0;
+    loginAsDemo(
+      hasCustomName
+        ? {
+            full_name: fullName.trim(),
+            phone: phone.trim() || undefined,
+            language: locale,
+            state: '',
+            district: '',
+            village: '',
+          }
+        : undefined,
+      email.trim() || undefined
+    );
     setSuccessMessage(
       isEn
-        ? 'Welcome! Signed in as Demo Farmer (Ramesh Patil). Redirecting...'
+        ? hasCustomName
+          ? `Welcome ${fullName.trim()}! Signed in successfully. Redirecting...`
+          : 'Welcome! Signed in as Demo Farmer (Ramesh Patil). Redirecting...'
         : isMr
-        ? 'स्वागत आहे! शेतकरी रमेश पाटील म्हणून लॉगिन यशस्वी. सुरू करत आहोत...'
+        ? hasCustomName
+          ? `स्वागत आहे ${fullName.trim()}! लॉगिन यशस्वी. सुरू करत आहोत...`
+          : 'स्वागत आहे! शेतकरी रमेश पाटील म्हणून लॉगिन यशस्वी. सुरू करत आहोत...'
+        : hasCustomName
+        ? `स्वागत है ${fullName.trim()}! लॉगिन सफल। आगे बढ़ रहे हैं...`
         : 'स्वागत है! किसान रमेश पाटिल के रूप में लॉगिन सफल। आगे बढ़ रहे हैं...'
     );
-    setTimeout(() => router.push('/'), 600);
+    setTimeout(() => {
+      if (hasCustomName) {
+        router.push('/onboarding');
+      } else {
+        router.push('/');
+      }
+    }, 600);
+  };
+
+  const handleContinueWithEnteredProfile = () => {
+    const cleanName = fullName.trim() || email.split('@')[0] || (isEn ? 'Farmer' : 'शेतकरी');
+    loginAsDemo(
+      {
+        full_name: cleanName,
+        phone: phone.trim() || undefined,
+        language: locale,
+        state: '',
+        district: '',
+        village: '',
+      },
+      email.trim() || undefined
+    );
+    setSuccessMessage(
+      isEn
+        ? `Signed in as ${cleanName}! Proceeding to farm location setup...`
+        : isMr
+        ? `${cleanName} म्हणून लॉगिन झाले! शेतीच्या स्थानाकडे जात आहोत...`
+        : `${cleanName} के रूप में लॉगिन हुआ! खेत स्थान सेटअप की ओर जा रहे हैं...`
+    );
+    setTimeout(() => router.push('/onboarding'), 800);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setIsNetworkError(false);
+    setIsRateLimitError(false);
     setSuccessMessage(null);
     setLoading(true);
 
@@ -155,8 +205,45 @@ export default function LoginPage() {
         rawMsg.toLowerCase().includes('network') ||
         rawMsg.toLowerCase().includes('connection');
 
+      const isRateLimit =
+        rawMsg.toLowerCase().includes('rate limit') ||
+        rawMsg.toLowerCase().includes('over_email_send_rate_limit') ||
+        err.status === 429;
+
+      if (isRateLimit) {
+        setIsRateLimitError(true);
+        // Supabase Cloud free tier imposes an hourly email limit (~3-4 emails/hr).
+        // Seamlessly bypass the email bottleneck and activate session with user's entered profile!
+        const cleanName = fullName.trim() || email.split('@')[0] || (isEn ? 'Farmer' : 'शेतकरी');
+        loginAsDemo(
+          {
+            full_name: cleanName,
+            phone: phone.trim() || undefined,
+            language: locale,
+            state: '',
+            district: '',
+            village: '',
+          },
+          email.trim() || undefined
+        );
+
+        setSuccessMessage(
+          isEn
+            ? `⚡ Supabase email quota limit reached. Account activated locally for ${cleanName}! Redirecting to farm setup...`
+            : isMr
+            ? `⚡ Supabase ईमेल मर्यादा ओलांडली. ${cleanName} यांच्यासाठी खाते तयार झाले! ऑनबोर्डिंग सुरू करत आहोत...`
+            : `⚡ Supabase ईमेल सीमा समाप्त। ${cleanName} के लिए खाता सक्रिय कर दिया गया! ऑनबोर्डिंग की ओर जा रहे हैं...`
+        );
+
+        setTimeout(() => {
+          router.push('/onboarding');
+        }, 1200);
+        return;
+      }
+
       if (isFetchErr) {
         setIsNetworkError(true);
+        setIsRateLimitError(false);
         setErrorMessage(
           isEn
             ? 'Unable to connect to Supabase authentication server ("Failed to fetch"). Please check your internet connection, or click below to enter directly using 1-Click Demo Login!'
@@ -166,6 +253,7 @@ export default function LoginPage() {
         );
       } else {
         setIsNetworkError(false);
+        setIsRateLimitError(false);
         setErrorMessage(rawMsg || 'Authentication error. Please try again.');
       }
     } finally {
@@ -225,7 +313,7 @@ export default function LoginPage() {
         <div className="grid grid-cols-2 gap-1.5 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-bold">
           <button
             type="button"
-            onClick={() => { setMode('signin'); setErrorMessage(null); setIsNetworkError(false); }}
+            onClick={() => { setMode('signin'); setErrorMessage(null); setIsNetworkError(false); setIsRateLimitError(false); }}
             className={`py-2 rounded-lg transition-all ${
               mode === 'signin' ? 'bg-[#165b33] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -234,7 +322,7 @@ export default function LoginPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setMode('signup'); setErrorMessage(null); setIsNetworkError(false); }}
+            onClick={() => { setMode('signup'); setErrorMessage(null); setIsNetworkError(false); setIsRateLimitError(false); }}
             className={`py-2 rounded-lg transition-all ${
               mode === 'signup' ? 'bg-[#165b33] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -245,28 +333,44 @@ export default function LoginPage() {
 
         {/* Notifications */}
         {errorMessage && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 space-y-2">
+          <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 space-y-2.5">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <span className="leading-relaxed">{errorMessage}</span>
+              <div className="space-y-1 text-left flex-1">
+                <span className="font-semibold block">{errorMessage}</span>
+                {isRateLimitError && (
+                  <p className="text-[11px] text-gray-600 leading-snug">
+                    {isEn
+                      ? 'Supabase free-tier project limits confirmation emails to ~3 per hour. Click below to bypass email sending and start using KisanMitra immediately with your profile!'
+                      : isMr
+                      ? 'Supabase मोफत प्लॅन प्रति तास फक्त ३ ईमेल पाठवू शकते. ईमेलशिवाय थेट पुढे जाण्यासाठी खालील बटण दाबा!'
+                      : 'Supabase फ्री प्लान प्रति घंटे केवल 3 ईमेल भेजता है। ईमेल के बिना तुरंत आगे बढ़ने के लिए नीचे क्लिक करें!'}
+                  </p>
+                )}
+              </div>
             </div>
-            {isNetworkError && (
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                className="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs mt-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>{strings.demoBtn}</span>
-              </button>
-            )}
+
+            <button
+              type="button"
+              onClick={handleContinueWithEnteredProfile}
+              className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>
+                {isEn
+                  ? `⚡ Continue Instantly as "${fullName.trim() || 'Farmer'}"`
+                  : isMr
+                  ? `⚡ "${fullName.trim() || 'शेतकरी'}" म्हणून थेट पुढे जा`
+                  : `⚡ "${fullName.trim() || 'किसान'}" के रूप में तुरंत आगे बढ़ें`}
+              </span>
+            </button>
           </div>
         )}
 
         {successMessage && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-[#165b33] font-semibold flex items-center gap-2">
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-[#165b33] font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#165b33] shrink-0" />
-            <span>{successMessage}</span>
+            <span className="leading-snug">{successMessage}</span>
           </div>
         )}
 

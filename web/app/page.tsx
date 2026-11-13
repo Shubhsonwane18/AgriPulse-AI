@@ -22,11 +22,9 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { sharedApiClient } from '@shared/client';
+import { useLocation } from '@/components/LocationContext';
 import { FarmerPersonalSection } from '@/components/FarmerPersonalSection';
 import {
-  getSavedFarmerLocation,
-  saveFarmerLocation,
-  detectRealUserLocation,
   UserLocationDetails,
   POPULAR_AGRI_REGIONS,
   KOLHAPUR_LOCATION,
@@ -65,15 +63,13 @@ const POPULAR_TALUKAS = [
 export default function DashboardPage() {
   const router = useRouter();
   const { t, locale } = useLanguage();
+  const { location, setLocation, detectGPS, isLocating, locationModalOpen, setLocationModalOpen } = useLocation();
   const d = t.dashboard;
 
-  // Selected location, crop & market states (synchronized on mount to prevent SSR hydration mismatch)
-  const [location, setLocation] = useState<UserLocationDetails>(DEFAULT_FARMER_LOCATION);
+  // Selected crop & market states
   const [selectedCrop, setSelectedCrop] = useState<string>('Ladyfinger');
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [marketModalOpen, setMarketModalOpen] = useState(false);
-  const [locationModalOpen, setLocationModalOpen] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
   const [cropSearchQuery, setCropSearchQuery] = useState('');
   const [selectedCropCategory, setSelectedCropCategory] = useState<string>('all');
 
@@ -90,10 +86,6 @@ export default function DashboardPage() {
   const [mandiCropSearchQuery, setMandiCropSearchQuery] = useState<string>('');
   const [mandiPriceDisplayUnit, setMandiPriceDisplayUnit] = useState<'kg' | 'quintal'>('kg');
 
-  useEffect(() => {
-    const saved = getSavedFarmerLocation();
-    setLocation(saved);
-  }, []);
 
   // Strict scroll containment: prevents background dashboard scrolling when scrolling dropdown or modals
   const handleScrollWheelContain = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -157,7 +149,6 @@ export default function DashboardPage() {
 
   const handleSelectTaluka = (selected: UserLocationDetails) => {
     setLocation(selected);
-    saveFarmerLocation(selected);
     setTalukaSearchQuery('');
     setTalukaSearchResults([]);
     setShowTalukaDropdown(false);
@@ -180,20 +171,12 @@ export default function DashboardPage() {
   }, [location, selectedCrop]);
 
   const handleDetectGPS = async () => {
-    setIsLocating(true);
-    try {
-      const detected = await detectRealUserLocation();
-      setLocation(detected);
-      saveFarmerLocation(detected);
-      setLocationModalOpen(false);
-    } finally {
-      setIsLocating(false);
-    }
+    await detectGPS();
+    setLocationModalOpen(false);
   };
 
   const handleSelectPresetRegion = (region: UserLocationDetails) => {
     setLocation(region);
-    saveFarmerLocation(region);
     setLocationModalOpen(false);
   };
 
@@ -291,21 +274,28 @@ export default function DashboardPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              type="button"
               onClick={() => setLocationModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 hover:border-emerald-300 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Change Farm Village or Location"
             >
               <MapPin className="w-4 h-4 text-[#165b33]" />
-              <span>{location.village || location.district || 'Location'}</span>
+              <span className="font-bold">{location.village || location.district || 'Location'}</span>
+              <span className="text-[11px] font-bold text-[#165b33] bg-emerald-100/70 px-1.5 py-0.5 rounded-md ml-0.5 border border-emerald-200">
+                {locale === 'mr' ? 'गाव बदला ➔' : 'Change ➔'}
+              </span>
             </button>
             <button
+              type="button"
               onClick={() => setCropModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all cursor-pointer"
             >
               {d.changeCrop} ({cropNameDisplay})
             </button>
             <button
+              type="button"
               onClick={() => setMarketModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs transition-all cursor-pointer"
             >
               {d.changeMarket}
             </button>
@@ -463,9 +453,10 @@ export default function DashboardPage() {
 
             {/* GPS Locate Button */}
             <button
+              type="button"
               onClick={handleDetectGPS}
               disabled={isLocating}
-              className="px-4 py-2.5 rounded-xl bg-[#165b33] hover:bg-[#124828] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shrink-0 shadow-xs transition-all active:scale-95"
+              className="px-4 py-2.5 rounded-xl bg-[#165b33] hover:bg-[#124828] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shrink-0 shadow-xs transition-all active:scale-95 cursor-pointer"
             >
               <Compass className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
               <span>
@@ -473,6 +464,17 @@ export default function DashboardPage() {
                   ? locale === 'mr' ? 'जीपीएस शोधत आहे...' : 'Detecting GPS...'
                   : locale === 'mr' ? 'थेट GPS स्थान वापरा' : 'Use Live GPS'}
               </span>
+            </button>
+
+            {/* Direct Open LGD Village Hierarchy Modal Button */}
+            <button
+              type="button"
+              onClick={() => setLocationModalOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#165b33] border border-emerald-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-2xs"
+              title="Open Complete LGD Government Village Directory"
+            >
+              <MapPin className="w-4 h-4 text-[#165b33]" />
+              <span>{locale === 'mr' ? 'सर्व गावे निवडा' : 'All Villages'} ➔</span>
             </button>
           </div>
 
@@ -1184,105 +1186,7 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Change Location Modal */}
-      {locationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-200 space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between border-b pb-3 shrink-0">
-              <div>
-                <h3 className="font-bold text-gray-900 text-base">Select Your City or Taluka</h3>
-                <p className="text-xs text-gray-500">Recalculates nearest mandis, freight & multi-crop prices</p>
-              </div>
-              <button onClick={() => setLocationModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* City / Taluka Search Input inside Modal */}
-            <div className="relative shrink-0">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={talukaSearchQuery}
-                onChange={(e) => setTalukaSearchQuery(e.target.value)}
-                placeholder={
-                  locale === 'mr'
-                    ? 'तालुका किंवा शहराचे नाव शोधा (उदा. हातकणंगले, करवीर...)'
-                    : 'Search Taluka or City (e.g. Hatkanangale, Kagal...)'
-                }
-                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:outline-none focus:border-[#165b33]"
-              />
-            </div>
-
-            {/* Live Search Results inside Modal */}
-            {talukaSearchResults.length > 0 && (
-              <div
-                onWheel={handleScrollWheelContain}
-                className="space-y-1 overflow-y-auto max-h-48 border border-emerald-100 rounded-xl p-1 bg-emerald-50/30 shrink-0 overscroll-contain touch-pan-y"
-                style={{ overscrollBehavior: 'contain' }}
-              >
-                <span className="text-[10px] font-bold text-[#165b33] px-2 block">
-                  Search Results ({talukaSearchResults.length}):
-                </span>
-                {talukaSearchResults.map((result, idx) => (
-                  <button
-                    key={`modal-result-${idx}`}
-                    onClick={() => handleSelectTaluka(result)}
-                    className="w-full text-left px-2.5 py-2 rounded-lg text-xs bg-white hover:bg-emerald-50 border border-gray-200/60 flex items-center justify-between transition-colors"
-                  >
-                    <div>
-                      <span className="font-bold text-gray-900 block">{result.village}</span>
-                      <span className="text-[10px] text-gray-500">{result.district}, {result.state}</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-[#165b33]">Select →</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
-              onClick={handleDetectGPS}
-              disabled={isLocating}
-              className="w-full py-2.5 rounded-xl bg-[#165b33] hover:bg-[#124828] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs shrink-0"
-            >
-              <Compass className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? 'Detecting via Browser GPS...' : '📍 Detect Live GPS via Browser'}</span>
-            </button>
-
-            <div
-              onWheel={handleScrollWheelContain}
-              className="space-y-1.5 pt-1 overflow-y-auto flex-1 overscroll-contain touch-pan-y"
-              style={{ overscrollBehavior: 'contain' }}
-            >
-              <span className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
-                Popular Agricultural Hubs & Talukas:
-              </span>
-              {POPULAR_AGRI_REGIONS.map((region) => {
-                const isSelected =
-                  location.village.toLowerCase() === region.village.toLowerCase() ||
-                  location.district.toLowerCase() === region.district.toLowerCase();
-                return (
-                  <button
-                    key={region.displayName}
-                    onClick={() => handleSelectPresetRegion(region)}
-                    className={`w-full text-left px-3.5 py-2 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                      isSelected
-                        ? 'bg-emerald-50 text-[#165b33] border-emerald-300 font-bold'
-                        : 'hover:bg-gray-50 text-gray-700 border-gray-200'
-                    }`}
-                  >
-                    <div>
-                      <span className="font-bold block">{region.village}, {region.district}</span>
-                      <span className="text-[10px] text-gray-500">{region.state}</span>
-                    </div>
-                    {isSelected && <Check className="w-4 h-4 text-[#165b33]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Change Crop Modal with all Indian crops, live search & category filters */}
       {cropModalOpen && (

@@ -1534,3 +1534,186 @@ export const CROP_CATEGORIES: { id: CropCategory; labelEn: string; labelMr: stri
   { id: 'spices', labelEn: '🌶️ Spices & Condiments', labelMr: '🌶️ मसाले', labelHi: '🌶️ मसाले' },
   { id: 'fruits', labelEn: '🍎 Fruits & Orchards', labelMr: '🍎 फळे', labelHi: '🍎 फल' },
 ];
+
+
+// Multilingual localized crop name helper covering all 9 Indian languages
+const CROP_REGIONAL_NAMES: Record<string, Partial<Record<string, string>>> = {
+  Ladyfinger: {
+    gu: 'ભીંડા (Bhinda)',
+    ta: 'வெண்டைக்காய் (Vendakkai)',
+    te: 'బెండకాయ (Bendakaya)',
+    kn: 'ಬೆಂಡೆಕಾಯಿ (Bendekayi)',
+    bn: 'ঢেঁড়শ (Dherosh)',
+    pa: 'ਭਿੰਡੀ (Bhindi)',
+  },
+  Tomato: {
+    gu: 'ટામેટા (Tameta)',
+    ta: 'தக்காளி (Thakkali)',
+    te: 'టమోటా (Tomato)',
+    kn: 'ಟೊಮೆಟೊ (Tomato)',
+    bn: 'টমেটো (Tomato)',
+    pa: 'ਟਮਾਟਰ (Tamatar)',
+  },
+  Onion: {
+    gu: 'ડુંગળી (Dungli)',
+    ta: 'வெங்காயம் (Vengayam)',
+    te: 'ఉల్లిపాయ (Ullipaya)',
+    kn: 'ಈರುಳ್ಳಿ (Eerulli)',
+    bn: 'পেঁয়াজ (Peyaj)',
+    pa: 'ਪਿਆਜ਼ (Pyaz)',
+  },
+  Potato: {
+    gu: 'બટાકા (Bataka)',
+    ta: 'உருளைக்கிழங்கு (Urulaikilangu)',
+    te: 'బంగాళాదుంప (Bangaladumpa)',
+    kn: 'ಆಲೂಗಡ್ಡೆ (Aaloogadde)',
+    bn: 'আলু (Aloo)',
+    pa: 'ਆਲੂ (Aloo)',
+  },
+  GreenChilli: {
+    gu: 'લીલા મરચા (Lila Marcha)',
+    ta: 'பச்சை மிளகாய் (Pachai Milagai)',
+    te: 'பచ్చిమిర్చి (Pachimirchi)',
+    kn: 'ಹಸಿಮೆಣಸಿನಕಾಯಿ (Hasimenasinakayi)',
+    bn: 'কাঁচা লঙ্কা (Kacha Lanka)',
+    pa: 'ਹਰੀ ਮਿਰਚ (Hari Mirch)',
+  },
+  Ginger: {
+    gu: 'આદું (Aadu)',
+    ta: 'இஞ்சி (Inji)',
+    te: 'అల్లం (Allam)',
+    kn: 'ಶುಂಠಿ (Shunti)',
+    bn: 'আদা (Aada)',
+    pa: 'ਅਦਰਕ (Adrak)',
+  },
+  Garlic: {
+    gu: 'લસણ (Lasan)',
+    ta: 'பூண்டு (Poondu)',
+    te: 'వెల్లుల్లి (Vellulli)',
+    kn: 'ಬೆಳ್ಳುಳ್ಳಿ (Bellulli)',
+    bn: 'রসুন (Roshun)',
+    pa: 'ਲਸਣ (Lasan)',
+  },
+  Soybean: {
+    gu: 'સોયાબીન (Soybean)',
+    ta: 'சோயாபீன் (Soyabean)',
+    te: 'సోయాబీన్ (Soyabean)',
+    kn: 'ಸೋಯಾಬೀನ್ (Soyabean)',
+    bn: 'সয়াবিন (Soyabean)',
+    pa: 'ਸੋਇਆਬੀਨ (Soyabean)',
+  },
+  Cotton: {
+    gu: 'કપાસ (Kapas)',
+    ta: 'பருத்தி (Paruthi)',
+    te: 'పత్తి (Patti)',
+    kn: 'ಹತ್ತಿ (Hatti)',
+    bn: 'তুলা (Tula)',
+    pa: 'ਕਪਾਹ / ਨਰਮਾ (Kapas)',
+  },
+  Wheat: {
+    gu: 'ઘઉં (Ghau)',
+    ta: 'கோதுமை (Godhumai)',
+    te: 'గోధుಮలు (Godhumalu)',
+    kn: 'ಗೋಧಿ (Godhi)',
+    bn: 'গম (Gom)',
+    pa: 'ਕਣਕ (Kanak)',
+  },
+  Sugarcane: {
+    gu: 'શેરડી (Sherdi)',
+    ta: 'கரும்பு (Karumbu)',
+    te: 'చెరకు (Cheraku)',
+    kn: 'ಕಬ್ಬು (Kabbu)',
+    bn: 'আখ (Aakh)',
+    pa: 'ਗੰਨਾ (Ganna)',
+  },
+  Turmeric: {
+    gu: 'હળદર (Haldar)',
+    ta: 'மஞ்சள் (Manjal)',
+    te: 'પસુપુ (Pasupu)',
+    kn: 'ಅರಿಶಿನ (Arishina)',
+    bn: 'হলুদ (Holud)',
+    pa: 'ਹਲਦੀ (Haldi)',
+  },
+  Maize: {
+    gu: 'મકાઈ (Makai)',
+    ta: 'மக்காச்சோளம் (Makkacholam)',
+    te: 'మొక్కజొన్న (Mokkajonna)',
+    kn: 'ಮೆಕ್ಕೆಜೋಳ (Mekkejola)',
+    bn: 'ভুট্টা (Bhutta)',
+    pa: 'ਮੱਕੀ (Makki)',
+  },
+  Rice: {
+    gu: 'ડાંગર / ચોખા (Dangar)',
+    ta: 'நெல் / அரிசி (Nel)',
+    te: 'వరి / బియ్యం (Vari)',
+    kn: 'ಭತ್ತ / ಅಕ್ಕಿ (Bhatta)',
+    bn: 'ধান / চাল (Dhan)',
+    pa: 'ਝੋਨਾ / ਚੌਲ (Jhona)',
+  },
+  Gram: {
+    gu: 'ચણા (Chana)',
+    ta: 'கொண்டைக்கடலை (Kondakadalai)',
+    te: 'శనగలు (Senagalu)',
+    kn: 'ಕಡಲೆ (Kadale)',
+    bn: 'ছোলা (Chhola)',
+    pa: 'ਛੋਲੇ (Chhole)',
+  },
+  Mustard: {
+    gu: 'રાઈ / સરસવ (Rai)',
+    ta: 'கடுகு (Kadugu)',
+    te: 'ఆవాలు (Aavalu)',
+    kn: 'ಸಾಸಿವೆ (Saasive)',
+    bn: 'সরিষা (Shorisha)',
+    pa: 'ਸਰ੍ਹੋਂ (Sarson)',
+  },
+  Groundnut: {
+    gu: 'મગફળી (Magfali)',
+    ta: 'வேர்க்கடலை (Verkadalai)',
+    te: 'వేరుశనగ (Verusanaga)',
+    kn: 'ಕಡಲೆಕಾಯಿ (Kadalekayi)',
+    bn: 'চিনাবাদাম (Chinabadam)',
+    pa: 'ਮੂੰਗਫਲੀ (Moongphali)',
+  },
+  Banana: {
+    gu: 'કેળા (Kela)',
+    ta: 'வாழைப்பழம் (Vazhaipazham)',
+    te: 'అరటిపండు (Aratipandu)',
+    kn: 'ಬಾಳೆಹಣ್ಣು (Balehannu)',
+    bn: 'কলা (Kola)',
+    pa: 'ਕੇਲਾ (Kela)',
+  },
+  Mango: {
+    gu: 'કેરી (Keri)',
+    ta: 'மாம்பழம் (Mampazham)',
+    te: 'మామిడిపండు (Mamidipandu)',
+    kn: 'ಮಾವಿನಹಣ್ಣು (Mavinahannu)',
+    bn: 'আম (Aam)',
+    pa: 'ਅੰਬ (Amb)',
+  },
+  Pomegranate: {
+    gu: 'દાડમ (Dadam)',
+    ta: 'மாதுளை (Mathulai)',
+    te: 'దానిమ్మ (Danimma)',
+    kn: 'ದಾಳಿಂಬೆ (Dalimbe)',
+    bn: 'ডালিম / বেদানা (Dalim)',
+    pa: 'ਅਨਾਰ (Anaar)',
+  },
+  Grapes: {
+    gu: 'દ્રાક્ષ (Draksh)',
+    ta: 'திராட்சை (Thiratchai)',
+    te: 'ద్రాక్ష (Draksha)',
+    kn: 'ದ್ರಾಕ್ಷಿ (Drakshi)',
+    bn: 'আঙুর (Angur)',
+    pa: 'ਅੰਗੂਰ (Angoor)',
+  },
+};
+
+export function getCropDisplayName(crop: CropMasterRecord, locale: string): string {
+  if (!crop) return '';
+  if (locale === 'mr') return crop.nameMr;
+  if (locale === 'hi') return crop.nameHi;
+  if (locale === 'en') return crop.nameEn;
+  const regional = CROP_REGIONAL_NAMES[crop.key]?.[locale];
+  if (regional) return regional;
+  return crop.nameHi || crop.nameEn;
+}

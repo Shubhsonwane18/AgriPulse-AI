@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,13 @@ import {
   Radio
 } from 'lucide-react';
 import { sharedApiClient } from '@shared/client';
+import {
+  INDIA_REGIONS,
+  getDistrictsForState,
+  getTalukasForDistrict,
+  getVillagesForTaluka,
+  resolveExactFarmLocation
+} from '@/lib/indiaRegions';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -50,7 +57,9 @@ export default function SettingsPage() {
     locationTitle: isEn ? 'Farm Location & Land Details' : isMr ? 'शेतीचे स्थान व क्षेत्रफळ' : 'स्थान व खेत का रकबा',
     stateLabel: isEn ? 'State' : isMr ? 'राज्य' : 'राज्य',
     districtLabel: isEn ? 'District' : isMr ? 'जिल्हा' : 'जिला',
+    talukaLabel: isEn ? 'Taluka / Tehsil' : isMr ? 'तालुका' : 'तहसील / तालुका',
     villageLabel: isEn ? 'Village' : isMr ? 'गाव' : 'गाँव',
+    villageSelectLabel: isEn ? 'Quick Pick Key Village' : isMr ? 'प्रमुख गावे' : 'प्रमुख गाँव',
     landSizeLabel: isEn ? 'Total Farm Land Size (Acres)' : isMr ? 'एकूण शेती क्षेत्र (एकर)' : 'कुल जमीन का रकबा (एकड़)',
     saveBtn: isEn ? 'Save Profile Changes' : isMr ? 'बदल जतन करा' : 'जानकारी सहेजें',
     savedNotice: isEn ? 'Profile updated successfully!' : isMr ? 'माहिती यशस्वीरित्या अद्यतनित झाली!' : 'प्रोफाइल जानकारी सफलतापूर्वक अद्यतन की गई!',
@@ -70,12 +79,18 @@ export default function SettingsPage() {
   const [phone, setPhone] = useState(profile?.phone || '');
   const [selectedLang, setSelectedLang] = useState<Locale>(locale);
   const [stateName, setStateName] = useState(profile?.state || 'Maharashtra');
-  const [districtName, setDistrictName] = useState(profile?.district || 'Nashik');
-  const [villageName, setVillageName] = useState(profile?.village || '');
+  const [districtName, setDistrictName] = useState(profile?.district || 'Kolhapur');
+  const [talukaName, setTalukaName] = useState('Karvir');
+  const [villageName, setVillageName] = useState(profile?.village || 'Kasaba Bawada');
   const [landSize, setLandSize] = useState(profile?.land_size_acres || 2.5);
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Dynamic cascading lists based on selected State & District
+  const availableDistricts = useMemo(() => getDistrictsForState(stateName), [stateName]);
+  const availableTalukas = useMemo(() => getTalukasForDistrict(stateName, districtName), [stateName, districtName]);
+  const availableVillages = useMemo(() => getVillagesForTaluka(stateName, districtName, talukaName), [stateName, districtName, talukaName]);
 
   // WhatsApp Linking code
   const [linkData, setLinkData] = useState<{ code: string; waLink: string } | null>(null);
@@ -132,8 +147,15 @@ export default function SettingsPage() {
       setFullName(profile.full_name || '');
       setPhone(profile.phone || '');
       setStateName(profile.state || 'Maharashtra');
-      setDistrictName(profile.district || 'Nashik');
-      setVillageName(profile.village || '');
+      setDistrictName(profile.district || 'Kolhapur');
+      const rawVill = profile.village || '';
+      const match = rawVill.match(/^(.*?)\s*\((.*?)\)$/);
+      if (match) {
+        setVillageName(match[1].trim());
+        setTalukaName(match[2].trim());
+      } else {
+        setVillageName(rawVill);
+      }
       setLandSize(profile.land_size_acres || 2.5);
     }
   }, [profile]);
@@ -149,6 +171,15 @@ export default function SettingsPage() {
     setSaveMessage(null);
 
     try {
+      const geo = await resolveExactFarmLocation({
+        state: stateName,
+        district: districtName,
+        taluka: talukaName,
+        village: villageName,
+        apiKey: agmarknetApiKey
+      });
+      const fullVillage = villageName ? `${villageName} (${talukaName})` : talukaName;
+
       if (user) {
         if (isDemo) {
           updateDemoProfile({
@@ -157,8 +188,10 @@ export default function SettingsPage() {
             language: selectedLang,
             state: stateName,
             district: districtName,
-            village: villageName,
+            village: fullVillage,
             land_size_acres: landSize,
+            latitude: geo.latitude,
+            longitude: geo.longitude,
           });
         } else {
           const { error } = await supabase.from('profiles').upsert({
@@ -168,14 +201,32 @@ export default function SettingsPage() {
             language: selectedLang,
             state: stateName,
             district: districtName,
-            village: villageName,
+            village: fullVillage,
             land_size_acres: landSize,
+            latitude: geo.latitude,
+            longitude: geo.longitude,
             updated_at: new Date().toISOString(),
           });
 
           if (error) throw error;
           await refreshProfile();
         }
+
+        // Update local storage location so nearest mandis immediately use exact coordinates
+        const farmLoc = {
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          village: villageName || talukaName,
+          taluka: talukaName,
+          district: districtName,
+          state: stateName,
+          country: 'India',
+          displayName: `${villageName ? villageName + ', ' : ''}${talukaName}, ${districtName}, ${stateName}`,
+          source: 'search' as const,
+        };
+        try {
+          localStorage.setItem('kisanmitra_farmer_location', JSON.stringify(farmLoc));
+        } catch (_) {}
       }
 
       setLocale(selectedLang);
@@ -275,31 +326,85 @@ export default function SettingsPage() {
               <span>{strings.locationTitle}</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">{strings.stateLabel}</label>
                 <select
                   value={stateName}
-                  onChange={(e) => setStateName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33]"
+                  onChange={(e) => {
+                    const nextState = e.target.value;
+                    setStateName(nextState);
+                    const dists = getDistrictsForState(nextState);
+                    if (dists.length > 0) {
+                      setDistrictName(dists[0].name);
+                      const tals = dists[0].talukas;
+                      if (tals.length > 0) {
+                        setTalukaName(tals[0].name);
+                        const vills = getVillagesForTaluka(nextState, dists[0].name, tals[0].name);
+                        setVillageName(vills.length > 0 ? vills[0] : '');
+                      }
+                    }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33] font-medium"
                 >
-                  <option value="Maharashtra">{isEn ? 'Maharashtra' : 'महाराष्ट्र'}</option>
-                  <option value="Madhya Pradesh">{isEn ? 'Madhya Pradesh' : 'मध्य प्रदेश'}</option>
-                  <option value="Gujarat">{isEn ? 'Gujarat' : 'गुजरात'}</option>
-                  <option value="Rajasthan">{isEn ? 'Rajasthan' : 'राजस्थान'}</option>
-                  <option value="Punjab">{isEn ? 'Punjab' : 'पंजाब'}</option>
+                  {INDIA_REGIONS.map((st) => (
+                    <option key={st.name} value={st.name}>
+                      {isMr ? st.nameMr || st.name : isEn ? st.name : st.nameHi || st.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-gray-700 font-semibold mb-1">{strings.districtLabel}</label>
-                <input
-                  type="text"
-                  required
+                <select
                   value={districtName}
-                  onChange={(e) => setDistrictName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33]"
-                />
+                  onChange={(e) => {
+                    const nextDist = e.target.value;
+                    setDistrictName(nextDist);
+                    const tals = getTalukasForDistrict(stateName, nextDist);
+                    if (tals.length > 0) {
+                      setTalukaName(tals[0].name);
+                      const vills = getVillagesForTaluka(stateName, nextDist, tals[0].name);
+                      setVillageName(vills.length > 0 ? vills[0] : '');
+                    }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33] font-medium"
+                >
+                  {availableDistricts.map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {isMr ? d.nameMr || d.name : isEn ? d.name : d.nameHi || d.name}
+                    </option>
+                  ))}
+                  {districtName && !availableDistricts.some(d => d.name.toLowerCase() === districtName.toLowerCase()) && (
+                    <option value={districtName}>{districtName}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">{strings.talukaLabel}</label>
+                <select
+                  value={talukaName}
+                  onChange={(e) => {
+                    const nextTal = e.target.value;
+                    setTalukaName(nextTal);
+                    const vills = getVillagesForTaluka(stateName, districtName, nextTal);
+                    if (vills.length > 0) {
+                      setVillageName(vills[0]);
+                    }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33] font-medium"
+                >
+                  {availableTalukas.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {isMr ? t.nameMr || t.name : isEn ? t.name : t.nameHi || t.name}
+                    </option>
+                  ))}
+                  {talukaName && !availableTalukas.some(t => t.name.toLowerCase() === talukaName.toLowerCase()) && (
+                    <option value={talukaName}>{talukaName}</option>
+                  )}
+                </select>
               </div>
 
               <div>
@@ -308,7 +413,7 @@ export default function SettingsPage() {
                   type="text"
                   value={villageName}
                   onChange={(e) => setVillageName(e.target.value)}
-                  placeholder="e.g. Lasalgaon"
+                  placeholder="Village / Farm Name"
                   className="w-full bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-gray-900 focus:outline-none focus:border-[#165b33]"
                 />
               </div>

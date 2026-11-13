@@ -34,25 +34,18 @@ import {
   CropMasterRecord,
   CropCategory
 } from '@/lib/cropDatabase';
+import { useLocation } from '@/components/LocationContext';
 import {
-  getSavedFarmerLocation,
-  saveFarmerLocation,
-  detectRealUserLocation,
   UserLocationDetails,
-  POPULAR_AGRI_REGIONS,
-  DEFAULT_FARMER_LOCATION
+  POPULAR_AGRI_REGIONS
 } from '@/lib/location';
 
 export default function PricesPage() {
   const { t, locale } = useLanguage();
+  const { location, setLocation, detectGPS, isLocating, setLocationModalOpen } = useLocation();
 
   const isEn = locale === 'en';
   const isMr = locale === 'mr';
-
-  // Location state
-  const [location, setLocation] = useState<UserLocationDetails>(DEFAULT_FARMER_LOCATION);
-  const [isLocating, setIsLocating] = useState(false);
-  const [locationModalOpen, setLocationModalOpen] = useState(false);
 
   // Unit toggle: 'kg' (₹/kg) vs 'quintal' (₹/q)
   const [priceUnit, setPriceUnit] = useState<'kg' | 'quintal'>('kg');
@@ -64,11 +57,6 @@ export default function PricesPage() {
   const [selectedMandiId, setSelectedMandiId] = useState<string>('kolhapur-apmc');
   const [state, setState] = useState<string>('Maharashtra');
 
-  // Load saved location on mount
-  useEffect(() => {
-    const saved = getSavedFarmerLocation();
-    setLocation(saved);
-  }, []);
 
   // Filter crops based on category & search term
   const filteredCrops = useMemo(() => {
@@ -135,20 +123,12 @@ export default function PricesPage() {
 
   // Handle GPS detect
   const handleDetectGPS = async () => {
-    setIsLocating(true);
-    try {
-      const detected = await detectRealUserLocation();
-      setLocation(detected);
-      saveFarmerLocation(detected);
-      setLocationModalOpen(false);
-    } finally {
-      setIsLocating(false);
-    }
+    await detectGPS();
+    setLocationModalOpen(false);
   };
 
   const handleSelectPresetRegion = (region: UserLocationDetails) => {
     setLocation(region);
-    saveFarmerLocation(region);
     setLocationModalOpen(false);
   };
 
@@ -824,56 +804,7 @@ export default function PricesPage() {
         </div>
       </main>
 
-      {/* Location Selection Modal */}
-      {locationModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 border border-gray-200 shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-[#165b33]" />
-                <h3 className="text-lg font-bold text-gray-900">
-                  {isEn ? 'Select Agricultural Location' : isMr ? 'आपले कृषी क्षेत्र निवडा' : 'अपना कृषि क्षेत्र चुनें'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setLocationModalOpen(false)}
-                className="p-1 rounded-full text-gray-400 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* GPS Auto Detect */}
-            <button
-              onClick={handleDetectGPS}
-              disabled={isLocating}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#165b33] hover:bg-[#124828] text-white font-bold text-sm shadow-xs transition-all disabled:opacity-60"
-            >
-              <Compass className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? 'Detecting via GPS API...' : 'Detect Exact Live GPS Location'}</span>
-            </button>
-
-            {/* Preset Agricultural Mandi Hubs */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
-                Popular Agricultural Mandi Regions
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {POPULAR_AGRI_REGIONS.map((region) => (
-                  <button
-                    key={region.village}
-                    onClick={() => handleSelectPresetRegion(region)}
-                    className="p-3 rounded-xl border border-gray-200 hover:border-[#165b33] hover:bg-emerald-50/40 text-left transition-all"
-                  >
-                    <div className="text-xs font-bold text-gray-900">{region.village}</div>
-                    <div className="text-[11px] text-gray-500">{region.district}, {region.state}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

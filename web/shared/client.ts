@@ -33,7 +33,7 @@ import {
 export class KisanMitraApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') {
+  constructor(baseUrl: string = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')) {
     this.baseUrl = baseUrl;
   }
 

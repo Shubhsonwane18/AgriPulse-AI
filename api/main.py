@@ -18,12 +18,34 @@ from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Query, Body, Header, Request, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import sys
+from pathlib import Path
+
+# Add api directory to sys.path for modular services
+_current_dir = Path(__file__).resolve().parent
+if str(_current_dir) not in sys.path:
+    sys.path.insert(0, str(_current_dir))
+
+from services.market_arbitrage.calculator import rank_mandis_by_net_profit, VEHICLE_EFFICIENCY_KM_PER_L
+from services.market_arbitrage.models import ArbitrageRequest, ArbitrageResponse, MandiCandidate, MandiEvaluation
+from services.agronomy_guard.weather_client import evaluate_spraying_window
+from services.agronomy_guard.vision_infer import diagnose_crop_pathology
+from services.village_directory.router import router as lgd_router
+from services.market_registry.router import router as market_registry_router
+from services.market_registry.seeder import seed_universal_registry
+from services.spatial_resolver import resolve_farm_location
 
 app = FastAPI(
     title="KisanMitra Unified Agri Intelligence API",
-    description="Live APMC Mandi Rates, Decision Engine, Multilingual Chatbot, WhatsApp & Telegram Webhooks, Store & Agronomist Handoff",
-    version="2.0.0"
+    description="Live APMC Mandi Rates, Universal Mandi Registry, 3-Layer Pricing Engine, Multilingual Chatbot & Decision Engine",
+    version="2.1.0"
 )
+
+app.include_router(lgd_router)
+app.include_router(market_registry_router)
+
+# Ensure Universal Mandi Registry is initialized on startup
+seed_universal_registry()
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,7 +71,7 @@ def supabase_get(table: str, query_params: dict = None) -> Optional[List[Dict[st
             "Content-Type": "application/json"
         }
         url = f"{SUPABASE_URL}/rest/v1/{table}"
-        res = requests.get(url, headers=headers, params=query_params, timeout=3.5)
+        res = requests.get(url, headers=headers, params=query_params, timeout=1.2)
         if res.status_code == 200:
             return res.json()
     except Exception as e:
@@ -65,7 +87,7 @@ def supabase_post(table: str, payload: dict) -> bool:
             "Prefer": "return=minimal"
         }
         url = f"{SUPABASE_URL}/rest/v1/{table}"
-        res = requests.post(url, headers=headers, json=payload, timeout=4.0)
+        res = requests.post(url, headers=headers, json=payload, timeout=1.2)
         return res.status_code in (200, 201)
     except Exception as e:
         print(f"[Supabase POST {table}] Warning: {e}")
@@ -561,6 +583,121 @@ def health_check():
         "channels": ["web", "mobile_expo", "whatsapp_cloud_api", "telegram_bot"]
     }
 
+# -----------------------------------------------------------------------------
+# AgriAgent-OS v1 Endpoints (AGENTS.md Specification)
+# -----------------------------------------------------------------------------
+
+class DiagnoseRequest(BaseModel):
+    crop_name: str = Field(default="Tomato", description="Crop name")
+    symptoms: str = Field(default="concentric rings", description="Visual symptoms or pathogen description")
+    lat: float = Field(default=20.1472, description="Latitude")
+    lon: float = Field(default=74.2255, description="Longitude")
+
+@app.post("/api/v1/market/arbitrage", response_model=ArbitrageResponse)
+def post_market_arbitrage_v1(payload: ArbitrageRequest):
+    """
+    Evaluates candidate mandis and ranks strictly by actual in-hand net realization.
+    Deducts round-trip fuel cost (2 * D * P_fuel / M_vehicle), labor loading fee,
+    and APMC statutory cess.
+    """
+    ranked = rank_mandis_by_net_profit(
+        weight_quintals=payload.weight_quintals,
+        candidates=payload.mandis,
+        vehicle_type=payload.vehicle_type,
+        diesel_price_per_l=payload.diesel_price_per_l,
+        loading_fee_per_qtl=payload.loading_fee_per_qtl,
+        apmc_cess_pct=payload.apmc_cess_pct,
+        tolls_inr=payload.tolls_inr
+    )
+    if not ranked:
+        raise HTTPException(status_code=400, detail="No mandi candidates provided")
+
+    best = ranked[0]
+    worst = ranked[-1]
+    spread = best["effective_net_rate"] - worst["effective_net_rate"]
+
+    return ArbitrageResponse(
+        status="success",
+        crop="Produce",
+        weight_quintals=payload.weight_quintals,
+        vehicle_type=payload.vehicle_type,
+        diesel_price_per_l=payload.diesel_price_per_l,
+        best_mandi_id=best["mandi_id"],
+        best_mandi_name=best["mandi_name"],
+        max_net_earnings=best["net_earnings"],
+        arbitrage_spread_per_qtl=round(spread, 2),
+        ranking=[MandiEvaluation(**item) for item in ranked]
+    )
+
+@app.get("/api/v1/agronomy/spray-window")
+async def get_agronomy_spray_window_v1(
+    lat: float = Query(20.1472, description="Farmer latitude"),
+    lon: float = Query(74.2255, description="Farmer longitude")
+):
+    """
+    Hyperlocal Open-Meteo 48h Weather Spraying Window Lockout Analyzer.
+    Applies rain (>40% / 0.5mm), wind drift (>18km/h), and high heat (>35°C) lockouts.
+    """
+    evaluation = await evaluate_spraying_window(lat, lon)
+    return {
+        "status": "success",
+        "lat": lat,
+        "lon": lon,
+        "evaluation": evaluation
+    }
+
+@app.post("/api/v1/agronomy/diagnose")
+async def post_agronomy_diagnose_v1(payload: DiagnoseRequest):
+    """
+    Pathology Computer Vision & CIBRC Chemical Advisory coupled with Hyperlocal Spray Window.
+    """
+    res = await diagnose_crop_pathology(
+        crop_name=payload.crop_name,
+        symptom_or_image_hint=payload.symptoms,
+        lat=payload.lat,
+        lon=payload.lon
+    )
+    return res
+
+class SpatialResolvePayload(BaseModel):
+    latitude: float
+    longitude: float
+    accuracy: Optional[float] = None
+    source: Optional[str] = "satellite_pin"
+
+@app.post("/api/v1/spatial/resolve")
+def post_spatial_resolve(payload: SpatialResolvePayload):
+    """
+    Snaps raw coordinates to official LGD administrative units (State -> District -> Taluka -> Village)
+    and resolves top 3 closest APMC mandis with live rates.
+    """
+    try:
+        return resolve_farm_location(
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            accuracy=payload.accuracy
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.get("/api/v1/spatial/resolve")
+def get_spatial_resolve(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+    accuracy: Optional[float] = Query(None, description="Accuracy radius in meters")
+):
+    """
+    GET endpoint for spatial snap and nearest APMC mandi resolver.
+    """
+    try:
+        return resolve_farm_location(
+            latitude=lat,
+            longitude=lon,
+            accuracy=accuracy
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
 # 1. Decision Engine: Mandi Net Realization
 @app.get("/api/mandis")
 def get_mandis(
@@ -944,6 +1081,15 @@ def process_whatsapp_background(payload: Dict[str, Any]):
                             text_content = interactive.get("list_reply", {}).get("title", "")
                     elif msg_type == "audio":
                         text_content = "Voice query about crop market price"
+                    elif msg_type == "location":
+                        loc_data = msg.get("location", {})
+                        lat = loc_data.get("latitude")
+                        lon = loc_data.get("longitude")
+                        if lat is not None and lon is not None:
+                            spatial_res = resolve_farm_location(lat, lon)
+                            reply_text = spatial_res["formatted_reply"]
+                            notify_telegram(f"📍 *WhatsApp Farm Location from {sender_phone}:*\n{reply_text}")
+                            continue
 
                     # Handle STOP or DELETE command (PDF Section 2.6 / Page 9)
                     if text_content.strip().upper() in ["STOP", "DELETE"]:
@@ -992,11 +1138,24 @@ async def handle_whatsapp_webhook(
 # 9. Telegram Bot Webhook
 @app.post("/webhook/telegram")
 def handle_telegram_webhook(update: Dict[str, Any], background_tasks: BackgroundTasks):
-    """Receives Telegram updates, processes farmer commands, and links accounts"""
+    """Receives Telegram updates, processes farmer commands, live locations, and links accounts"""
     msg = update.get("message", {})
     text = msg.get("text", "")
     from_user = msg.get("from", {})
     username = from_user.get("username", str(from_user.get("id", "")))
+
+    # Handle GPS / WhatsApp / Telegram Live Location Pin
+    loc = msg.get("location")
+    if loc:
+        lat = loc.get("latitude")
+        lon = loc.get("longitude")
+        if lat is not None and lon is not None:
+            spatial_res = resolve_farm_location(lat, lon)
+            return {
+                "status": "ok",
+                "message": spatial_res["formatted_reply"],
+                "data": spatial_res
+            }
 
     if text.startswith("/start"):
         return {"status": "ok", "message": "Welcome to KisanMitra Telegram Advisory!"}
@@ -1226,9 +1385,14 @@ async def calculate_profit_and_msp(payload: ProfitCalculationRequest):
     }
     modal_price = DEFAULT_CROP_PRICES.get(crop_lower, 2200.0)
     for m in MANDIS_DB:
-        if m.get("commodity", "").lower() == crop_lower:
-            modal_price = float(m.get("modal_price", modal_price))
-            break
+        for cname, pdata in m.get("prices", {}).items():
+            if cname.lower() == crop_lower and "modal" in pdata:
+                modal_price = float(pdata["modal"])
+                break
+    
+
+
+
             
     selling_price = payload.custom_selling_price if payload.custom_selling_price else modal_price
     
@@ -1255,13 +1419,16 @@ async def calculate_profit_and_msp(payload: ProfitCalculationRequest):
                     "difference": round(diff, 2),
                     "text": f"Current market price (₹{selling_price:.0f}) is ₹{diff:.0f}/qtl (+{(diff/msp)*100:.1f}%) ABOVE Government MSP floor."
                 }
+                break
             else:
                 msp_comparison = {
                     "status": "below_msp",
                     "difference": round(diff, 2),
                     "text": f"Market price is ₹{abs(diff):.0f}/qtl below MSP (₹{msp:.0f}). Consider selling at Government procurement center."
                 }
-            break
+                break
+
+
 
     # Save to Supabase saved_crops table asynchronously if user provided
     try:

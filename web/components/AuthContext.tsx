@@ -53,7 +53,7 @@ interface AuthContextType {
   isDemo: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  loginAsDemo: (customProfile?: Partial<UserProfile>) => void;
+  loginAsDemo: (customProfile?: Partial<UserProfile>, customEmail?: string) => void;
   updateDemoProfile: (updates: Partial<UserProfile>) => void;
 }
 
@@ -147,17 +147,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loginAsDemo = (customProfile?: Partial<UserProfile>) => {
+  const loginAsDemo = (customProfile?: Partial<UserProfile>, customEmail?: string) => {
     const demoProf: UserProfile = {
       ...DEFAULT_DEMO_PROFILE,
       ...(customProfile || {}),
     };
-    setUser(DEFAULT_DEMO_USER);
+    const demoUser: User = {
+      ...DEFAULT_DEMO_USER,
+      id: customProfile?.id || DEFAULT_DEMO_USER.id,
+      email: customEmail || (customProfile?.full_name ? `${customProfile.full_name.toLowerCase().replace(/\s+/g, '.')}@farmer.local` : DEFAULT_DEMO_USER.email),
+      user_metadata: {
+        ...DEFAULT_DEMO_USER.user_metadata,
+        full_name: demoProf.full_name,
+        phone: demoProf.phone,
+      },
+    };
+    setUser(demoUser);
     setProfile(demoProf);
     setIsDemo(true);
     if (typeof window !== 'undefined') {
       localStorage.setItem('kisanmitra_demo_session', JSON.stringify({
-        user: DEFAULT_DEMO_USER,
+        user: demoUser,
         profile: demoProf,
       }));
     }

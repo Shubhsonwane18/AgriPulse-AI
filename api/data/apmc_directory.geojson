@@ -1,0 +1,138 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [74.2255, 20.1472] },
+      "properties": {
+        "id": "lasalgaon-nashik",
+        "name": "Lasalgaon Mandi Yard",
+        "district": "Nashik",
+        "state": "Maharashtra",
+        "primaryCommodity": "Onion",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [73.9856, 20.1706] },
+      "properties": {
+        "id": "pimpalgaon-nashik",
+        "name": "Pimpalgaon Baswant APMC",
+        "district": "Nashik",
+        "state": "Maharashtra",
+        "primaryCommodity": "Tomato",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [74.2433, 16.7050] },
+      "properties": {
+        "id": "kolhapur-apmc",
+        "name": "Kolhapur APMC Market Yard",
+        "district": "Kolhapur",
+        "state": "Maharashtra",
+        "primaryCommodity": "Jaggery / Sugarcane",
+        "mandiCessPct": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [74.5815, 16.8524] },
+      "properties": {
+        "id": "sangli-apmc",
+        "name": "Sangli APMC Market Yard",
+        "district": "Sangli",
+        "state": "Maharashtra",
+        "primaryCommodity": "Turmeric",
+        "mandiCessPct": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [75.8577, 22.7196] },
+      "properties": {
+        "id": "indore-apmc",
+        "name": "Indore APMC Mandi (Chhavani)",
+        "district": "Indore",
+        "state": "Madhya Pradesh",
+        "primaryCommodity": "Soybean",
+        "mandiCessPct": 1.5
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [76.3800, 18.7300] },
+      "properties": {
+        "id": "ambejogai-apmc",
+        "name": "Ambejogai APMC Market",
+        "district": "Beed",
+        "state": "Maharashtra",
+        "primaryCommodity": "Soybean / Cotton / Pulses",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [76.5350, 18.8480] },
+      "properties": {
+        "id": "parli-apmc",
+        "name": "Parli Vaijnath APMC",
+        "district": "Beed",
+        "state": "Maharashtra",
+        "primaryCommodity": "Cotton / Soybean",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [75.7600, 18.9900] },
+      "properties": {
+        "id": "beed-apmc",
+        "name": "Beed APMC Yard",
+        "district": "Beed",
+        "state": "Maharashtra",
+        "primaryCommodity": "Bajra / Jowar / Soybean",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [76.5604, 18.4088] },
+      "properties": {
+        "id": "latur-apmc",
+        "name": "Latur APMC Super Yard",
+        "district": "Latur",
+        "state": "Maharashtra",
+        "primaryCommodity": "Soybean / Urad / Tur",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [74.5800, 18.1550] },
+      "properties": {
+        "id": "baramati-apmc",
+        "name": "Baramati APMC",
+        "district": "Pune",
+        "state": "Maharashtra",
+        "primaryCommodity": "Sugarcane / Pomegranate",
+        "mandiCessPct": 1.05
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [75.7885, 23.1765] },
+      "properties": {
+        "id": "ujjain-apmc",
+        "name": "Ujjain Krishi Upaj Mandi",
+        "district": "Ujjain",
+        "state": "Madhya Pradesh",
+        "primaryCommodity": "Wheat",
+        "mandiCessPct": 1.5
+      }
+    }
+  ]
+}
+

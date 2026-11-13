@@ -20,10 +20,8 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { useLocation } from '@/components/LocationContext';
 import {
-  detectRealUserLocation,
-  getSavedFarmerLocation,
-  saveFarmerLocation,
   UserLocationDetails,
   DEFAULT_FARMER_LOCATION
 } from '@/lib/location';
@@ -63,15 +61,9 @@ export default function SoilPage() {
     labVerifiedBadge: isEn ? 'Lab Test Verified Values' : isMr ? 'प्रयोगशाळा चाचणी प्रमाणित' : 'प्रयोगशाला प्रमाणित मान'
   };
 
-  // Location & GPS (synchronized on mount to prevent SSR hydration mismatch)
-  const [location, setLocation] = useState<UserLocationDetails>(DEFAULT_FARMER_LOCATION);
-  const [isLocating, setIsLocating] = useState<boolean>(false);
+  // Location & GPS from global LocationContext
+  const { location, setLocation, detectGPS, isLocating, setLocationModalOpen } = useLocation();
   const [showSatelliteGuide, setShowSatelliteGuide] = useState<boolean>(true);
-
-  useEffect(() => {
-    const saved = getSavedFarmerLocation();
-    setLocation(saved);
-  }, []);
 
   // Soil Data
   const [soilProfile, setSoilProfile] = useState<SoilHealthCardData>(DEFAULT_SOIL_PROFILE);
@@ -165,14 +157,7 @@ export default function SoilPage() {
   }, [location.latitude, location.longitude]);
 
   const handleDetectGPS = async () => {
-    setIsLocating(true);
-    try {
-      const detected = await detectRealUserLocation();
-      setLocation(detected);
-      saveFarmerLocation(detected);
-    } finally {
-      setIsLocating(false);
-    }
+    await detectGPS();
   };
 
   const handleSelectRegion = (region: typeof testRegions[0]) => {
@@ -187,7 +172,6 @@ export default function SoilPage() {
       source: 'gps'
     };
     setLocation(updatedLoc);
-    saveFarmerLocation(updatedLoc);
   };
 
   const handleSaveModal = async (e: React.FormEvent) => {
@@ -236,15 +220,22 @@ export default function SoilPage() {
               {strings.title}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {strings.subtitle} · <span className="font-semibold text-gray-800">{location.village}, {location.district}</span>
+              {strings.subtitle} ·{' '}
+              <button
+                onClick={() => setLocationModalOpen(true)}
+                className="font-semibold text-[#165b33] hover:underline cursor-pointer"
+                title="Click to change location"
+              >
+                {location.village}, {location.district} (Change)
+              </button>
               <span className="text-xs text-gray-400 ml-1">({location.latitude.toFixed(2)}°N, {location.longitude.toFixed(2)}°E)</span>
             </p>
           </div>
 
           <button
-            onClick={handleDetectGPS}
+            onClick={() => detectGPS()}
             disabled={isLocating}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-gray-50 border border-gray-300 text-xs font-bold text-gray-800 transition-all shadow-xs self-start sm:self-auto disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-gray-50 border border-gray-300 text-xs font-bold text-gray-800 transition-all shadow-xs self-start sm:self-auto disabled:opacity-60 cursor-pointer"
           >
             <Compass className={`w-3.5 h-3.5 text-[#165b33] ${isLocating ? 'animate-spin' : ''}`} />
             <span>{isLocating ? 'Detecting...' : '📍 Refresh Live GPS'}</span>

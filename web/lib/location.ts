@@ -9,7 +9,172 @@ export interface UserLocationDetails {
   state: string;
   country: string;
   displayName: string;
-  source: 'gps' | 'ip' | 'default' | 'search';
+  source: 'gps' | 'ip' | 'default' | 'search' | 'lgd';
+  lgdCode?: number;
+  gramPanchayat?: string;
+  pincode?: string;
+}
+
+export interface LGDState {
+  state_code: number;
+  state_name: string;
+  state_name_local?: string;
+  district_count?: number;
+}
+
+export interface LGDDistrict {
+  district_code: number;
+  state_code: number;
+  district_name: string;
+  district_name_local?: string;
+  latitude: number;
+  longitude: number;
+  subdistrict_count?: number;
+  village_count?: number;
+}
+
+export interface LGDSubDistrict {
+  subdistrict_code: number;
+  district_code: number;
+  state_code: number;
+  subdistrict_name: string;
+  subdistrict_name_local?: string;
+  latitude: number;
+  longitude: number;
+  village_count?: number;
+}
+
+export interface LGDVillage {
+  village_code: number;
+  subdistrict_code: number;
+  district_code: number;
+  state_code: number;
+  village_name: string;
+  village_name_local?: string;
+  subdistrict_name?: string;
+  district_name?: string;
+  state_name?: string;
+  gram_panchayat?: string;
+  block_name?: string;
+  pincode?: string;
+  latitude: number;
+  longitude: number;
+  is_verified?: boolean;
+}
+
+const BACKEND_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+
+export async function fetchLGDStates(): Promise<LGDState[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/states`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('LGD fetch states error:', e);
+  }
+  return [
+    { state_code: 27, state_name: 'Maharashtra', state_name_local: 'महाराष्ट्र' },
+    { state_code: 23, state_name: 'Madhya Pradesh', state_name_local: 'मध्य प्रदेश' },
+    { state_code: 24, state_name: 'Gujarat', state_name_local: 'ગુજરાત / गुजरात' },
+    { state_code: 29, state_name: 'Karnataka', state_name_local: 'ಕರ್ನಾಟಕ / कर्नाटक' },
+  ];
+}
+
+export async function fetchLGDDistricts(state?: string, stateCode?: number): Promise<LGDDistrict[]> {
+  try {
+    const params = new URLSearchParams();
+    if (stateCode) params.set('stateCode', stateCode.toString());
+    else if (state) params.set('state', state);
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/districts?${params.toString()}`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('LGD fetch districts error:', e);
+  }
+  return [];
+}
+
+export async function fetchLGDTalukas(district?: string, districtCode?: number): Promise<LGDSubDistrict[]> {
+  try {
+    const params = new URLSearchParams();
+    if (districtCode) params.set('districtCode', districtCode.toString());
+    else if (district) params.set('district', district);
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/talukas?${params.toString()}`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('LGD fetch talukas error:', e);
+  }
+  return [];
+}
+
+export async function fetchLGDVillages(params: { taluka?: string; subdistrictCode?: number; district?: string }): Promise<LGDVillage[]> {
+  try {
+    const p = new URLSearchParams();
+    if (params.subdistrictCode) p.set('subdistrictCode', params.subdistrictCode.toString());
+    if (params.taluka) p.set('taluka', params.taluka);
+    if (params.district) p.set('district', params.district);
+    p.set('limit', '300');
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/villages?${p.toString()}`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.warn('LGD fetch villages error:', e);
+  }
+  return [];
+}
+
+export async function searchLGDVillages(query: string): Promise<UserLocationDetails[]> {
+  if (!query || !query.trim()) return [];
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/search?q=${encodeURIComponent(query.trim())}&limit=35`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.results && data.results.length > 0) {
+        return data.results.map((v: LGDVillage) => ({
+          latitude: v.latitude,
+          longitude: v.longitude,
+          village: v.village_name,
+          taluka: v.subdistrict_name || v.village_name,
+          district: v.district_name || 'District',
+          state: v.state_name || 'Maharashtra',
+          country: 'India',
+          displayName: `${v.village_name} ${v.village_name_local ? '(' + v.village_name_local + ')' : ''}, ${v.subdistrict_name || ''}, ${v.district_name}`,
+          source: 'lgd' as const,
+          lgdCode: v.village_code,
+          gramPanchayat: v.gram_panchayat,
+          pincode: v.pincode,
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn('LGD search error:', e);
+  }
+  return [];
+}
+
+export async function reverseGeocodeLGD(lat: number, lon: number): Promise<UserLocationDetails | null> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/lgd/reverse?lat=${lat}&lon=${lon}&limit=1`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.nearest_villages && data.nearest_villages.length > 0) {
+        const top = data.nearest_villages[0];
+        return {
+          latitude: top.latitude,
+          longitude: top.longitude,
+          village: top.village_name,
+          taluka: top.subdistrict_name,
+          district: top.district_name,
+          state: top.state_name,
+          country: 'India',
+          displayName: `${top.village_name} ${top.village_name_local ? '(' + top.village_name_local + ')' : ''}, ${top.district_name} (${top.distance_km} km)`,
+          source: 'lgd' as const,
+          lgdCode: top.village_code,
+          pincode: top.pincode,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('LGD reverse geocode error:', e);
+  }
+  return null;
 }
 
 export interface TalukaRecord {
@@ -21,7 +186,7 @@ export interface TalukaRecord {
   state: string;
   latitude: number;
   longitude: number;
-  type: 'taluka' | 'city' | 'major_town';
+  type: 'taluka' | 'city' | 'major_town' | 'village';
 }
 
 // Comprehensive offline index of Indian Talukas and Agricultural Cities
@@ -99,73 +264,95 @@ export const INDIAN_TALUKAS: TalukaRecord[] = [
   { name: 'Lasalgaon', nameMr: 'लासलगाव (कांदा बाजार)', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.1472, longitude: 74.2255, type: 'major_town' },
   { name: 'Niphad', nameMr: 'निफाड', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.0850, longitude: 74.1100, type: 'taluka' },
   { name: 'Pimpalgaon Baswant', nameMr: 'पिंपळगाव बसवंत', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.1706, longitude: 73.9856, type: 'major_town' },
-  { name: 'Dindori', nameMr: 'दिंडोरी', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.1950, longitude: 73.8350, type: 'taluka' },
   { name: 'Nashik City', nameMr: 'नाशिक शहर', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 19.9975, longitude: 73.7898, type: 'city' },
-  { name: 'Sinnar', nameMr: 'सिन्नर', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 19.8450, longitude: 73.9950, type: 'taluka' },
-  { name: 'Yeola', nameMr: 'येवला', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.0350, longitude: 74.4850, type: 'taluka' },
-  { name: 'Malegaon', nameMr: 'मालेगाव', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.5550, longitude: 74.5250, type: 'taluka' },
-  { name: 'Chandwad', nameMr: 'चांदवड', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.3250, longitude: 74.2450, type: 'taluka' },
-  { name: 'Kalwan', nameMr: 'कळवण', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.4950, longitude: 73.9950, type: 'taluka' },
+  { name: 'Yeola', nameMr: 'येवला', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.0450, longitude: 74.4850, type: 'taluka' },
+  { name: 'Sinnar', nameMr: 'सिन्नर', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 19.8550, longitude: 74.0050, type: 'taluka' },
+  { name: 'Dindori', nameMr: 'दिंडोरी', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.2050, longitude: 73.8350, type: 'taluka' },
+  { name: 'Kalwan', nameMr: 'कळवण', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.4950, longitude: 74.0250, type: 'taluka' },
+  { name: 'Malegaon', nameMr: 'मालेगाव', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.5550, longitude: 74.5250, type: 'city' },
   { name: 'Satana', nameMr: 'सटाणा (बागलाण)', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.5950, longitude: 74.2050, type: 'taluka' },
+  { name: 'Chandwad', nameMr: 'चांदवड', district: 'Nashik', districtMr: 'नाशिक', state: 'Maharashtra', latitude: 20.3250, longitude: 74.2450, type: 'taluka' },
 
   // Ahmednagar District
-  { name: 'Ahmednagar City', nameMr: 'अहमदनगर शहर', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.0948, longitude: 74.7480, type: 'city' },
-  { name: 'Rahuri', nameMr: 'राहुरी (कृषी विद्यापीठ)', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.3950, longitude: 74.6550, type: 'taluka' },
-  { name: 'Shrirampur', nameMr: 'श्रीरामपूर', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.6150, longitude: 74.6550, type: 'taluka' },
-  { name: 'Sangamner', nameMr: 'संगमनेर', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.5750, longitude: 74.2150, type: 'taluka' },
-  { name: 'Kopargaon', nameMr: 'कोपरगाव', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.8850, longitude: 74.4850, type: 'taluka' },
-  { name: 'Newasa', nameMr: 'नेवासा', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.5550, longitude: 74.9250, type: 'taluka' },
-  { name: 'Shevgaon', nameMr: 'शेवगाव', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.3450, longitude: 75.2150, type: 'taluka' },
-  { name: 'Parner', nameMr: 'पारनेर', district: 'Ahmednagar', districtMr: 'अहमदनगर', state: 'Maharashtra', latitude: 19.0050, longitude: 74.4450, type: 'taluka' },
+  { name: 'Rahata', nameMr: 'राहाता (शिर्डी)', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.6850, longitude: 74.4850, type: 'taluka' },
+  { name: 'Kopargaon', nameMr: 'कोपरगाव', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.8850, longitude: 74.4850, type: 'taluka' },
+  { name: 'Sangamner', nameMr: 'संगमनेर', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.5750, longitude: 74.2150, type: 'taluka' },
+  { name: 'Shrirampur', nameMr: 'श्रीरामपूर', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.6250, longitude: 74.6550, type: 'taluka' },
+  { name: 'Nevasa', nameMr: 'नेवासा', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.5550, longitude: 74.9250, type: 'taluka' },
+  { name: 'Shevgaon', nameMr: 'शेवगाव', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.3450, longitude: 75.2250, type: 'taluka' },
+  { name: 'Ahmednagar City', nameMr: 'अहिल्यानगर शहर', district: 'Ahmednagar', districtMr: 'अहिल्यानगर', state: 'Maharashtra', latitude: 19.0950, longitude: 74.7450, type: 'city' },
 
-  // Latur & Marathwada
-  { name: 'Latur City', nameMr: 'लातूर शहर', district: 'Latur', districtMr: 'लातूर', state: 'Maharashtra', latitude: 18.4088, longitude: 76.5604, type: 'city' },
-  { name: 'Ausa', nameMr: 'औसा', district: 'Latur', districtMr: 'लातूर', state: 'Maharashtra', latitude: 18.2550, longitude: 76.5050, type: 'taluka' },
-  { name: 'Nilanga', nameMr: 'निलंगा', district: 'Latur', districtMr: 'लातूर', state: 'Maharashtra', latitude: 18.1250, longitude: 76.7550, type: 'taluka' },
-  { name: 'Udgir', nameMr: 'उदगीर', district: 'Latur', districtMr: 'लातूर', state: 'Maharashtra', latitude: 18.3950, longitude: 77.1150, type: 'taluka' },
-  { name: 'Chhatrapati Sambhajinagar', nameMr: 'छत्रपती संभाजीनगर', district: 'Chhatrapati Sambhajinagar', districtMr: 'छत्रपती संभाजीनगर', state: 'Maharashtra', latitude: 19.8762, longitude: 75.3433, type: 'city' },
-  { name: 'Jalna', nameMr: 'जालना (बियाणे शहर)', district: 'Jalna', districtMr: 'जालना', state: 'Maharashtra', latitude: 19.8410, longitude: 75.8864, type: 'city' },
-  { name: 'Beed', nameMr: 'बीड', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 18.9891, longitude: 75.7601, type: 'city' },
-  { name: 'Nanded', nameMr: 'नांदेड', district: 'Nanded', districtMr: 'नांदेड', state: 'Maharashtra', latitude: 19.1383, longitude: 77.3210, type: 'city' },
-  { name: 'Parbhani', nameMr: 'परभणी', district: 'Parbhani', districtMr: 'परभणी', state: 'Maharashtra', latitude: 19.2608, longitude: 76.7749, type: 'city' },
+  // Jalgaon District
+  { name: 'Jalgaon City', nameMr: 'जळगाव शहर', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.0077, longitude: 75.5626, type: 'city' },
+  { name: 'Raver', nameMr: 'रावेर (केळी केंद्र)', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.2450, longitude: 76.0350, type: 'taluka' },
+  { name: 'Bhusawal', nameMr: 'भुसावळ', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.0450, longitude: 75.7850, type: 'city' },
+  { name: 'Chopda', nameMr: 'चोपडा', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.2550, longitude: 75.3050, type: 'taluka' },
+  { name: 'Jamner', nameMr: 'जामनेर', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 20.8150, longitude: 75.7850, type: 'taluka' },
 
-  // Khandesh & Vidarbha
-  { name: 'Jalgaon City', nameMr: 'जळगाव (केळी हब)', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.0077, longitude: 75.5626, type: 'city' },
-  { name: 'Bhusawal', nameMr: 'भुसावळ', district: 'Jalgaon', districtMr: 'जळगाव', state: 'Maharashtra', latitude: 21.0450, longitude: 75.7850, type: 'taluka' },
-  { name: 'Dhule', nameMr: 'धुळे', district: 'Dhule', districtMr: 'धुळे', state: 'Maharashtra', latitude: 20.9042, longitude: 74.7749, type: 'city' },
-  { name: 'Nagpur City', nameMr: 'नागपूर (संत्रा/कापूस हब)', district: 'Nagpur', districtMr: 'नागपूर', state: 'Maharashtra', latitude: 21.1458, longitude: 79.0882, type: 'city' },
-  { name: 'Amravati', nameMr: 'अमरावती', district: 'Amravati', districtMr: 'अमरावती', state: 'Maharashtra', latitude: 20.9320, longitude: 77.7523, type: 'city' },
-  { name: 'Akola', nameMr: 'अकोला (कापूस बाजार)', district: 'Akola', districtMr: 'अकोला', state: 'Maharashtra', latitude: 20.7002, longitude: 77.0082, type: 'city' },
-  { name: 'Yavatmal', nameMr: 'यवतमाळ', district: 'Yavatmal', districtMr: 'यवतमाळ', state: 'Maharashtra', latitude: 20.3888, longitude: 78.1204, type: 'city' },
+  // Marathwada & Vidarbha
+  { name: 'Somanwadi', nameMr: 'सोमणवाडी (अंबाजोगाई)', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 18.7120, longitude: 76.3450, type: 'village' },
+  { name: 'Ambejogai', nameMr: 'अंबाजोगाई', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 18.7300, longitude: 76.3800, type: 'taluka' },
+  { name: 'Beed City', nameMr: 'बीड शहर', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 18.9900, longitude: 75.7600, type: 'city' },
+  { name: 'Parli', nameMr: 'परळी वैजनाथ', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 18.8480, longitude: 76.5350, type: 'taluka' },
+  { name: 'Majalgaon', nameMr: 'माजलगाव', district: 'Beed', districtMr: 'बीड', state: 'Maharashtra', latitude: 19.1550, longitude: 76.2250, type: 'taluka' },
+  { name: 'Chhatrapati Sambhajinagar', nameMr: 'छत्रपती संभाजीनगर (औरंगाबाद)', district: 'Chhatrapati Sambhajinagar', districtMr: 'छत्रपती संभाजीनगर', state: 'Maharashtra', latitude: 19.8762, longitude: 75.3433, type: 'city' },
+  { name: 'Jalna City', nameMr: 'जालना शहर (बियाणे राजधानी)', district: 'Jalna', districtMr: 'जालना', state: 'Maharashtra', latitude: 19.8410, longitude: 75.8864, type: 'city' },
+  { name: 'Latur City', nameMr: 'लातूर शहर (सोयाबीन केंद्र)', district: 'Latur', districtMr: 'लातूर', state: 'Maharashtra', latitude: 18.4088, longitude: 76.5604, type: 'city' },
+  { name: 'Nagpur City', nameMr: 'नागपूर शहर (संत्रा व कापूस)', district: 'Nagpur', districtMr: 'नागपूर', state: 'Maharashtra', latitude: 21.1458, longitude: 79.0882, type: 'city' },
+  { name: 'Wardha City', nameMr: 'वर्धा शहर (सेवाग्राम)', district: 'Wardha', districtMr: 'वर्धा', state: 'Maharashtra', latitude: 20.7453, longitude: 78.6022, type: 'city' },
+  { name: 'Amravati City', nameMr: 'अमरावती शहर', district: 'Amravati', districtMr: 'अमरावती', state: 'Maharashtra', latitude: 20.9320, longitude: 77.7523, type: 'city' },
+  { name: 'Akola City', nameMr: 'अकोला शहर', district: 'Akola', districtMr: 'अकोला', state: 'Maharashtra', latitude: 20.7002, longitude: 77.0082, type: 'city' },
+  { name: 'Yavatmal City', nameMr: 'यवतमाळ (कापूस पट्टा)', district: 'Yavatmal', districtMr: 'यवतमाळ', state: 'Maharashtra', latitude: 20.3888, longitude: 78.1204, type: 'city' },
+  { name: 'Nanded City', nameMr: 'नांदेड शहर', district: 'Nanded', districtMr: 'नांदेड', state: 'Maharashtra', latitude: 19.1383, longitude: 77.3210, type: 'city' },
 
-  // Karnataka Border Agri Belts
-  { name: 'Nipani', nameMr: 'निपाणी (तंबाखू व भाजीपाला)', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.4020, longitude: 74.3820, type: 'major_town' },
-  { name: 'Belagavi', nameMr: 'बेळगाव शहर', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 15.8497, longitude: 74.4977, type: 'city' },
-  { name: 'Chikkodi', nameMr: 'चिक्कोडी', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.4300, longitude: 74.5950, type: 'taluka' },
-  { name: 'Hukkeri', nameMr: 'हुक्केरी (संकेश्वर)', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.2250, longitude: 74.6000, type: 'taluka' },
-  { name: 'Gokak', nameMr: 'गोकाक', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.1680, longitude: 74.8250, type: 'taluka' },
-  { name: 'Athani', nameMr: 'अथणी', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.7350, longitude: 75.0550, type: 'taluka' },
-  { name: 'Vijayapura', nameMr: 'विजापूर (द्राक्षे व डाळिंब)', district: 'Vijayapura', districtMr: 'विजापूर', state: 'Karnataka', latitude: 16.8302, longitude: 75.7100, type: 'city' },
+  // Madhya Pradesh Key Agri Centers
+  { name: 'Indore City', nameMr: 'इंदूर शहर', nameHi: 'इंदौर (छावनी मंडी)', district: 'Indore', districtMr: 'इंदूर', state: 'Madhya Pradesh', latitude: 22.7196, longitude: 75.8577, type: 'city' },
+  { name: 'Ujjain City', nameMr: 'उज्जैन शहर', nameHi: 'उज्जैन कृषि उपज मंडी', district: 'Ujjain', districtMr: 'उज्जैन', state: 'Madhya Pradesh', latitude: 23.1765, longitude: 75.7885, type: 'city' },
+  { name: 'Mandsaur', nameMr: 'मंदसौर', nameHi: 'मंदसौर (लहसुन मंडी)', district: 'Mandsaur', districtMr: 'मंदसौर', state: 'Madhya Pradesh', latitude: 24.0722, longitude: 75.0682, type: 'city' },
+  { name: 'Neemuch', nameMr: 'नीमच', nameHi: 'नीमच कृषि मंडी', district: 'Neemuch', districtMr: 'नीमच', state: 'Madhya Pradesh', latitude: 24.4722, longitude: 74.8682, type: 'city' },
+  { name: 'Bhopal City', nameMr: 'भोपाळ', nameHi: 'भोपाल', district: 'Bhopal', districtMr: 'भोपाळ', state: 'Madhya Pradesh', latitude: 23.2599, longitude: 77.4126, type: 'city' },
 
-  // Other Major National Agri Centers
-  { name: 'Indore', nameMr: 'इंदूर', district: 'Indore', districtMr: 'इंदूर', state: 'Madhya Pradesh', latitude: 22.7196, longitude: 75.8577, type: 'city' },
-  { name: 'Ujjain', nameMr: 'उज्जैन', district: 'Ujjain', districtMr: 'उज्जैन', state: 'Madhya Pradesh', latitude: 23.1765, longitude: 75.7885, type: 'city' },
-  { name: 'Mandsaur', nameMr: 'मंदसौर (लसूण हब)', district: 'Mandsaur', districtMr: 'मंदसौर', state: 'Madhya Pradesh', latitude: 24.0722, longitude: 75.0682, type: 'city' },
-  { name: 'Rajkot', nameMr: 'राजकोट', district: 'Rajkot', districtMr: 'राजकोट', state: 'Gujarat', latitude: 22.3039, longitude: 70.8022, type: 'city' },
-  { name: 'Surat', nameMr: 'सुरत', district: 'Surat', districtMr: 'सुरत', state: 'Gujarat', latitude: 21.1702, longitude: 72.8311, type: 'city' },
-  { name: 'Unjha', nameMr: 'उंझा (जिरे व मसाला हब)', district: 'Mehsana', districtMr: 'महेसाणा', state: 'Gujarat', latitude: 23.8042, longitude: 72.3925, type: 'city' },
-  { name: 'Vashi', nameMr: 'वाशी नवी मुंबई (मुख्य बाजारपेठ)', district: 'Navi Mumbai', districtMr: 'नवी मुंबई', state: 'Maharashtra', latitude: 19.0760, longitude: 72.9977, type: 'city' },
-  { name: 'Azadpur', nameMr: 'आझादपूर (दिल्ली मंडी)', district: 'North Delhi', districtMr: 'दिल्ली', state: 'Delhi', latitude: 28.7161, longitude: 77.1724, type: 'city' },
+  // Gujarat Key Agri Centers
+  { name: 'Rajkot City', nameMr: 'राजकोट', nameHi: 'राजकोट (कपास/मूंगफली)', district: 'Rajkot', districtMr: 'राजकोट', state: 'Gujarat', latitude: 22.3039, longitude: 70.8022, type: 'city' },
+  { name: 'Unjha Spices Yard', nameMr: 'ऊंझा', nameHi: 'ऊंझा (जीरा व मसाला मंडी)', district: 'Mehsana', districtMr: 'महेसाणा', state: 'Gujarat', latitude: 23.8042, longitude: 72.3925, type: 'major_town' },
+  { name: 'Surat City', nameMr: 'सुरत', nameHi: 'सूरत', district: 'Surat', districtMr: 'सुरत', state: 'Gujarat', latitude: 21.1702, longitude: 72.8311, type: 'city' },
+  { name: 'Gondal APMC', nameMr: 'गोंडल', nameHi: 'गोंडल APMC', district: 'Rajkot', districtMr: 'राजकोट', state: 'Gujarat', latitude: 21.9619, longitude: 70.7933, type: 'major_town' },
+
+  // Karnataka Key Agri Centers
+  { name: 'Belagavi City', nameMr: 'बेळगाव', nameHi: 'बेलगावी (कर्नाटक)', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 15.8497, longitude: 74.4977, type: 'city' },
+  { name: 'Nippani', nameMr: 'निपाणी (तंबाखू व भाजीपाला)', nameHi: 'निप्पानी', district: 'Belagavi', districtMr: 'बेळगाव', state: 'Karnataka', latitude: 16.3980, longitude: 74.3820, type: 'major_town' },
+  { name: 'Hubballi (Hubli)', nameMr: 'हुबळी', nameHi: 'हुबली (धारवाड़)', district: 'Dharwad', districtMr: 'धारवाड', state: 'Karnataka', latitude: 15.3647, longitude: 75.1240, type: 'city' },
 ];
 
 /**
- * Instant Offline Search + Nominatim Fallback for City, Taluka or Village
+ * Finds the closest pre-indexed taluka using Euclidean / Great-Circle distance
+ */
+export function findNearestIndexedTaluka(lat: number, lon: number): TalukaRecord {
+  let closest = INDIAN_TALUKAS[0];
+  let minD = Infinity;
+  for (const t of INDIAN_TALUKAS) {
+    const d = (t.latitude - lat) ** 2 + (t.longitude - lon) ** 2;
+    if (d < minD) {
+      minD = d;
+      closest = t;
+    }
+  }
+  return closest;
+}
+
+/**
+ * Instant Offline Search + Live Fallback for City, Taluka or Village
  */
 export async function searchIndianCityOrTaluka(query: string): Promise<UserLocationDetails[]> {
-  if (!query || !query.trim()) return [];
+  if (!query || !query.trim()) {
+    return getAllIndexedTalukas().slice(0, 25);
+  }
   const q = query.toLowerCase().trim();
 
-  // 1. Instant match in pre-indexed talukas and cities
+  // 1. Live match in official LGD government village directory
+  const lgdMatches: UserLocationDetails[] = await searchLGDVillages(query);
+
+  // 2. Instant match in pre-indexed talukas and cities
   const localMatches: UserLocationDetails[] = INDIAN_TALUKAS
     .filter((t) => {
       const matchName = t.name.toLowerCase().includes(q) || t.nameMr.includes(q);
@@ -174,14 +361,13 @@ export async function searchIndianCityOrTaluka(query: string): Promise<UserLocat
       return matchName || matchDist || matchState;
     })
     .sort((a, b) => {
-      // Prioritize exact or prefix matches
       const aStarts = a.name.toLowerCase().startsWith(q) || a.nameMr.startsWith(q);
       const bStarts = b.name.toLowerCase().startsWith(q) || b.nameMr.startsWith(q);
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
       return 0;
     })
-    .slice(0, 60)
+    .slice(0, 40)
     .map((t) => ({
       latitude: t.latitude,
       longitude: t.longitude,
@@ -194,18 +380,28 @@ export async function searchIndianCityOrTaluka(query: string): Promise<UserLocat
       source: 'search' as const,
     }));
 
-  if (localMatches.length >= 8) {
-    return localMatches;
+  // Combine LGD results with local pre-indexed records (deduplicating)
+  const combined: UserLocationDetails[] = [...lgdMatches];
+  const seen = new Set(lgdMatches.map(m => `${m.village.toLowerCase()}_${m.district.toLowerCase()}`));
+  for (const m of localMatches) {
+    const key = `${m.village.toLowerCase()}_${m.district.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(m);
+    }
   }
 
-  // 2. OpenStreetMap Nominatim Live Geocoding Fallback for any Indian village/town
+  if (combined.length >= 6) {
+    return combined;
+  }
+
+  // 3. OpenStreetMap Nominatim Live Geocoding Fallback (without browser forbidden header)
   if (q.length >= 3) {
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&addressdetails=1&limit=5`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&addressdetails=1&limit=6`;
       const res = await fetch(url, {
         headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'KisanMitra-AgriTalukaSearch/1.0',
+          'Accept': 'application/json'
         },
       });
 
@@ -229,22 +425,18 @@ export async function searchIndianCityOrTaluka(query: string): Promise<UserLocat
           };
         });
 
-        // Merge without duplicate coordinates
-        const seen = new Set(localMatches.map(m => `${m.latitude.toFixed(2)},${m.longitude.toFixed(2)}`));
         for (const r of osmResults) {
-          const key = `${r.latitude.toFixed(2)},${r.longitude.toFixed(2)}`;
+          const key = `${r.village.toLowerCase()}_${r.district.toLowerCase()}`;
           if (!seen.has(key)) {
             seen.add(key);
-            localMatches.push(r);
+            combined.push(r);
           }
         }
       }
-    } catch (err) {
-      console.warn('Nominatim search fallback error:', err);
-    }
+    } catch (_) {}
   }
 
-  return localMatches;
+  return combined;
 }
 
 /**
@@ -292,36 +484,36 @@ export const KOLHAPUR_LOCATION: UserLocationDetails = {
 export const POPULAR_AGRI_REGIONS: UserLocationDetails[] = [
   KOLHAPUR_LOCATION,
   {
-    latitude: 16.7450,
-    longitude: 74.4450,
-    village: 'Hatkanangale',
-    taluka: 'Hatkanangale',
-    district: 'Kolhapur',
+    latitude: 18.7120,
+    longitude: 76.3450,
+    village: 'Somanwadi',
+    taluka: 'Ambejogai',
+    district: 'Beed',
     state: 'Maharashtra',
     country: 'India',
-    displayName: 'Hatkanangale, Kolhapur',
+    displayName: 'Somanwadi, Ambejogai (Beed)',
     source: 'default',
   },
   {
-    latitude: 16.7150,
-    longitude: 74.5950,
-    village: 'Shirol',
-    taluka: 'Shirol',
-    district: 'Kolhapur',
+    latitude: 20.1472,
+    longitude: 74.2255,
+    village: 'Lasalgaon',
+    taluka: 'Niphad',
+    district: 'Nashik',
     state: 'Maharashtra',
     country: 'India',
-    displayName: 'Shirol, Kolhapur',
+    displayName: 'Lasalgaon (Niphad), Nashik',
     source: 'default',
   },
   {
-    latitude: 16.5780,
-    longitude: 74.3180,
-    village: 'Kagal',
-    taluka: 'Kagal',
-    district: 'Kolhapur',
+    latitude: 18.1550,
+    longitude: 74.5800,
+    village: 'Baramati',
+    taluka: 'Baramati',
+    district: 'Pune',
     state: 'Maharashtra',
     country: 'India',
-    displayName: 'Kagal, Kolhapur',
+    displayName: 'Baramati, Pune',
     source: 'default',
   },
   {
@@ -347,58 +539,25 @@ export const POPULAR_AGRI_REGIONS: UserLocationDetails[] = [
     source: 'default',
   },
   {
-    latitude: 18.1550,
-    longitude: 74.5800,
-    village: 'Baramati',
-    taluka: 'Baramati',
-    district: 'Pune',
-    state: 'Maharashtra',
-    country: 'India',
-    displayName: 'Baramati, Pune',
-    source: 'default',
-  },
-  {
-    latitude: 20.1472,
-    longitude: 74.2255,
-    village: 'Lasalgaon',
-    taluka: 'Niphad',
-    district: 'Nashik',
-    state: 'Maharashtra',
-    country: 'India',
-    displayName: 'Lasalgaon (Niphad), Nashik',
-    source: 'default',
-  },
-  {
-    latitude: 18.4967,
-    longitude: 73.8643,
-    village: 'Pune',
-    taluka: 'Haveli',
-    district: 'Pune',
-    state: 'Maharashtra',
-    country: 'India',
-    displayName: 'Pune, Maharashtra',
-    source: 'default',
-  },
-  {
-    latitude: 17.6599,
-    longitude: 75.9064,
-    village: 'Solapur',
-    taluka: 'Solapur North',
+    latitude: 17.6750,
+    longitude: 75.3250,
+    village: 'Pandharpur',
+    taluka: 'Pandharpur',
     district: 'Solapur',
     state: 'Maharashtra',
     country: 'India',
-    displayName: 'Solapur, Maharashtra',
+    displayName: 'Pandharpur, Solapur',
     source: 'default',
   },
   {
-    latitude: 18.4088,
-    longitude: 76.5604,
-    village: 'Latur',
-    taluka: 'Latur',
-    district: 'Latur',
+    latitude: 21.0077,
+    longitude: 75.5626,
+    village: 'Jalgaon',
+    taluka: 'Jalgaon',
+    district: 'Jalgaon',
     state: 'Maharashtra',
     country: 'India',
-    displayName: 'Latur, Maharashtra',
+    displayName: 'Jalgaon (Banana Belt), Maharashtra',
     source: 'default',
   },
   {
@@ -412,97 +571,167 @@ export const POPULAR_AGRI_REGIONS: UserLocationDetails[] = [
     displayName: 'Indore, Madhya Pradesh',
     source: 'default',
   },
+  {
+    latitude: 23.1765,
+    longitude: 75.7885,
+    village: 'Ujjain',
+    taluka: 'Ujjain',
+    district: 'Ujjain',
+    state: 'Madhya Pradesh',
+    country: 'India',
+    displayName: 'Ujjain, Madhya Pradesh',
+    source: 'default',
+  },
+  {
+    latitude: 22.3039,
+    longitude: 70.8022,
+    village: 'Rajkot',
+    taluka: 'Rajkot',
+    district: 'Rajkot',
+    state: 'Gujarat',
+    country: 'India',
+    displayName: 'Rajkot, Gujarat',
+    source: 'default',
+  },
+  {
+    latitude: 15.8497,
+    longitude: 74.4977,
+    village: 'Belagavi',
+    taluka: 'Belagavi',
+    district: 'Belagavi',
+    state: 'Karnataka',
+    country: 'India',
+    displayName: 'Belagavi, Karnataka',
+    source: 'default',
+  },
 ];
 
 /**
- * Reverse geocode latitude and longitude using OpenStreetMap Nominatim API
+ * Reverse geocode latitude and longitude with OpenStreetMap + offline index fallback
  */
 export async function reverseGeocodeCoords(lat: number, lon: number): Promise<UserLocationDetails> {
+  // 1. Try official Local Government Directory (LGD) spatial matching
+  const lgdMatch = await reverseGeocodeLGD(lat, lon);
+  if (lgdMatch) {
+    return lgdMatch;
+  }
+
+  const closestTaluka = findNearestIndexedTaluka(lat, lon);
+
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
     const res = await fetch(url, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'KisanMitra-AgriApp/1.0',
       },
     });
 
-    if (!res.ok) throw new Error('Nominatim request failed');
-    const data = await res.json();
-    const addr = data.address || {};
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
 
-    const village =
-      addr.village ||
-      addr.town ||
-      addr.suburb ||
-      addr.city ||
-      addr.county ||
-      'Local Village';
-    const district =
-      addr.state_district ||
-      addr.district ||
-      addr.county ||
-      addr.city ||
-      'Nashik';
-    const state = addr.state || 'Maharashtra';
-    const country = addr.country || 'India';
+      const village =
+        addr.village ||
+        addr.town ||
+        addr.suburb ||
+        addr.city ||
+        addr.county ||
+        closestTaluka.name;
+      const district =
+        addr.state_district ||
+        addr.district ||
+        addr.county ||
+        addr.city ||
+        closestTaluka.district;
+      const state = addr.state || closestTaluka.state;
+      const country = addr.country || 'India';
 
-    return {
-      latitude: Number(lat.toFixed(6)),
-      longitude: Number(lon.toFixed(6)),
-      village,
-      district,
-      state,
-      country,
-      displayName: `${village}, ${district}, ${state}`,
-      source: 'gps',
-    };
+      return {
+        latitude: Number(lat.toFixed(6)),
+        longitude: Number(lon.toFixed(6)),
+        village,
+        taluka: addr.county || addr.town || closestTaluka.name,
+        district,
+        state,
+        country,
+        displayName: `${village}, ${district}, ${state}`,
+        source: 'gps',
+      };
+    }
   } catch (err) {
-    console.warn('Reverse geocoding error:', err);
-    return {
-      latitude: Number(lat.toFixed(6)),
-      longitude: Number(lon.toFixed(6)),
-      village: 'Your Village',
-      district: 'Your District',
-      state: 'Maharashtra',
-      country: 'India',
-      displayName: `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
-      source: 'gps',
-    };
+    console.warn('Nominatim reverse geocoding fallback to closest indexed taluka:', err);
   }
+
+  // High-precision offline taluka matching fallback
+  return {
+    latitude: Number(lat.toFixed(6)),
+    longitude: Number(lon.toFixed(6)),
+    village: closestTaluka.name,
+    taluka: closestTaluka.name,
+    district: closestTaluka.district,
+    state: closestTaluka.state,
+    country: 'India',
+    displayName: `${closestTaluka.name}, ${closestTaluka.district}, ${closestTaluka.state}`,
+    source: 'gps',
+  };
 }
 
 /**
- * Fallback to IP-based Geolocation when browser GPS permission is denied or unavailable
+ * Robust IP-based Geolocation fallback when GPS permission is denied or unavailable
  */
 export async function fetchIPLocation(): Promise<UserLocationDetails> {
+  // 1. Try ipwho.is (HTTPS, free, high accuracy in India)
   try {
-    const res = await fetch('https://ipapi.co/json/');
-    if (!res.ok) throw new Error('ipapi request failed');
-    const data = await res.json();
-
-    if (data && data.latitude && data.longitude) {
-      return {
-        latitude: Number(data.latitude),
-        longitude: Number(data.longitude),
-        village: data.city || 'Local Area',
-        district: data.region || 'Nashik',
-        state: data.region || 'Maharashtra',
-        country: data.country_name || 'India',
-        displayName: `${data.city || 'Local'}, ${data.region || ''}, ${data.country_name || 'India'}`,
-        source: 'ip',
-      };
+    const res = await fetch('https://ipwho.is/');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && data.latitude && data.longitude) {
+        const city = data.city || 'Kolhapur';
+        const region = data.region || 'Maharashtra';
+        return {
+          latitude: Number(data.latitude),
+          longitude: Number(data.longitude),
+          village: city,
+          taluka: city,
+          district: city,
+          state: region,
+          country: data.country || 'India',
+          displayName: `${city}, ${region}, India`,
+          source: 'ip',
+        };
+      }
     }
-    throw new Error('Invalid IP location payload');
-  } catch (err) {
-    console.warn('IP location fetch failed, using default:', err);
-    return DEFAULT_FARMER_LOCATION;
-  }
+  } catch (_) {}
+
+  // 2. Try geojs.io (HTTPS, ultra-fast, CORS-friendly)
+  try {
+    const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.latitude && data.longitude) {
+        const city = data.city || 'Kolhapur';
+        const region = data.region || 'Maharashtra';
+        return {
+          latitude: parseFloat(data.latitude),
+          longitude: parseFloat(data.longitude),
+          village: city,
+          taluka: city,
+          district: city,
+          state: region,
+          country: data.country || 'India',
+          displayName: `${city}, ${region}, India`,
+          source: 'ip',
+        };
+      }
+    }
+  } catch (_) {}
+
+  return DEFAULT_FARMER_LOCATION;
 }
 
 /**
  * Main Function: Obtains user's real GPS position from browser,
- * reverse-geocodes with Nominatim, and falls back gracefully to IP location.
+ * reverse-geocodes, and falls back gracefully to IP location or nearest taluka.
  */
 export async function detectRealUserLocation(): Promise<UserLocationDetails> {
   return new Promise((resolve) => {
@@ -513,33 +742,66 @@ export async function detectRealUserLocation(): Promise<UserLocationDetails> {
 
     if (!navigator.geolocation) {
       console.warn('Browser geolocation not supported, falling back to IP');
-      fetchIPLocation().then(resolve);
+      fetchIPLocation().then((loc) => {
+        saveFarmerLocation(loc);
+        resolve(loc);
+      });
       return;
     }
 
+    let hasResolved = false;
+    // Generous 9.5s fallback timer so user has ample time to click "Allow" on permission dialog
+    const fallbackTimer = setTimeout(async () => {
+      if (!hasResolved) {
+        hasResolved = true;
+        console.warn('GPS query taking too long, falling back to IP geolocation');
+        const ipLocation = await fetchIPLocation();
+        saveFarmerLocation(ipLocation);
+        resolve(ipLocation);
+      }
+    }, 9500);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (hasResolved) return;
+        hasResolved = true;
+        clearTimeout(fallbackTimer);
         const { latitude, longitude } = pos.coords;
-        const details = await reverseGeocodeCoords(latitude, longitude);
-        // Persist to localStorage for fast reload
         try {
-          localStorage.setItem('kisanmitra_farmer_location', JSON.stringify(details));
-        } catch (_) {}
-        resolve(details);
+          const details = await reverseGeocodeCoords(latitude, longitude);
+          saveFarmerLocation(details);
+          resolve(details);
+        } catch {
+          const closestTaluka = findNearestIndexedTaluka(latitude, longitude);
+          const fallback: UserLocationDetails = {
+            latitude: Number(latitude.toFixed(6)),
+            longitude: Number(longitude.toFixed(6)),
+            village: closestTaluka.name,
+            taluka: closestTaluka.name,
+            district: closestTaluka.district,
+            state: closestTaluka.state,
+            country: 'India',
+            displayName: `${closestTaluka.name}, ${closestTaluka.district}, ${closestTaluka.state}`,
+            source: 'gps',
+          };
+          saveFarmerLocation(fallback);
+          resolve(fallback);
+        }
       },
       async (error) => {
-        console.warn('Geolocation denied or error:', error.message);
+        if (hasResolved) return;
+        hasResolved = true;
+        clearTimeout(fallbackTimer);
+        console.warn('Geolocation denied or unavailable:', error.message);
         // Fall back to IP-based detection
         const ipLocation = await fetchIPLocation();
-        try {
-          localStorage.setItem('kisanmitra_farmer_location', JSON.stringify(ipLocation));
-        } catch (_) {}
+        saveFarmerLocation(ipLocation);
         resolve(ipLocation);
       },
       {
         enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 60000,
+        timeout: 9000,
+        maximumAge: 120000,
       }
     );
   });
@@ -558,11 +820,12 @@ export function getSavedFarmerLocation(): UserLocationDetails {
 }
 
 /**
- * Persists user location to localStorage
+ * Persists user location to localStorage and notifies all components via custom event
  */
 export function saveFarmerLocation(details: UserLocationDetails): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem('kisanmitra_farmer_location', JSON.stringify(details));
+    window.dispatchEvent(new CustomEvent('kisanmitra_location_changed', { detail: details }));
   } catch (_) {}
 }
